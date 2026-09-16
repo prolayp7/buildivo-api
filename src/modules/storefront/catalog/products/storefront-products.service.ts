@@ -60,6 +60,7 @@ function isCompatible(a: ProductCompatibility, b: ProductCompatibility): boolean
 const listInclude = {
   category: { select: { id: true, title: true, slug: true, parent: { select: { id: true, title: true, slug: true } } } },
   brand: { select: { id: true, title: true, slug: true } },
+  taxRate: { select: { ratePercent: true } },
   variants: {
     where: { deletedAt: null, status: 'ACTIVE' as const },
     select: { id: true, price: true, salePrice: true, stockQty: true, isDefault: true },
@@ -383,6 +384,7 @@ export class StorefrontProductsService {
       include: {
         category: { select: { title: true } },
         brand: { select: { title: true } },
+        taxRate: { select: { ratePercent: true } },
         variants: {
           where: { deletedAt: null, status: 'ACTIVE' },
           select: { id: true, price: true, salePrice: true, stockQty: true, isDefault: true },
@@ -414,6 +416,7 @@ export class StorefrontProductsService {
         image: imageByProduct.get(p.id) ?? null,
         category: p.category.title,
         brand: p.brand?.title ?? null,
+        vatRatePercent: p.taxRate?.ratePercent ?? null,
         ...pricingOf(p.variants),
       })),
       specifications: [...specKeys].sort().map((key) => ({
@@ -473,6 +476,7 @@ export class StorefrontProductsService {
       include: {
         category: { select: { id: true, title: true, slug: true, parent: { select: { id: true, title: true, slug: true } } } },
         brand: { select: { id: true, title: true, slug: true } },
+        taxRate: { select: { ratePercent: true } },
         compatibility: true,
         faqs: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, question: true, answer: true } },
         variants: {

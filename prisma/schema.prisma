@@ -256,6 +256,9 @@ model Category {
   description              String?
   additionalDescription    String?         @map("additional_description")
   sortOrder                Int             @default(0) @map("sort_order")
+  // Material Symbols icon name (e.g. "bolt") for nav/department tiles -
+  // optional, storefront falls back to a generic icon when unset.
+  icon                     String?
   isIndexable              Boolean         @default(true) @map("is_indexable")
   showOnHomepage           Boolean         @default(true) @map("show_on_homepage")
   coverImage               String?         @map("cover_image")
@@ -1386,24 +1389,18 @@ model HeroTrustBadge {
   @@map("hero_trust_badges")
 }
 
+// Mirrors the real, fixed section order on the storefront homepage
+// (src/app/(storefront)/page.tsx) - not a general-purpose catalog, since
+// that page is a hardcoded layout, not a section registry.
 enum HomepageSectionType {
   HERO
   TRUST_STRIP
-  DEALS
+  DEPARTMENTS
   FEATURED_PRODUCTS
-  NEW_ARRIVALS
-  BRANDS
-  TESTIMONIALS
-  BLOG_HIGHLIGHTS
-  FAQS
-  BANNERS
-  NEWSLETTER
-  CATEGORY_SHOWCASE
-  SHOP_BY_NEED
-  GAMING_SHOWCASE
-  LAPTOP_SHOWCASE
-  BUYING_GUIDES
-  SEO_INTRO
+  PROJECT_KITS
+  TRADE_CTA
+  CALCULATORS
+  ECOSYSTEM_MATCHER
 }
 
 // The ordering/visibility layer for the storefront homepage: which of the
@@ -1446,6 +1443,9 @@ model MenuItem {
   children   MenuItem[]    @relation("MenuItemTree")
   label      String
   href       String?
+  // Material Symbols icon name - optional; for a category-linked item the
+  // storefront falls back to that category's own icon when this is unset.
+  icon       String?
   categoryId Int?          @map("category_id")
   category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sortOrder  Int           @default(0) @map("sort_order")

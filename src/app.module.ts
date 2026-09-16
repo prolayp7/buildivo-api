@@ -51,6 +51,7 @@ import { AdminNewsletterModule } from './modules/admin/newsletter/newsletter.mod
 import { EmailModule } from './modules/email/email.module';
 import { StorefrontMerchandisingModule } from './modules/storefront/merchandising/storefront-merchandising.module';
 import { StorefrontCmsModule } from './modules/storefront/cms/storefront-cms.module';
+import { StorefrontMenusModule } from './modules/storefront/menus/storefront-menus.module';
 import { StorefrontBundlesModule } from './modules/storefront/bundles/storefront-bundles.module';
 import { StorefrontQuotesModule } from './modules/storefront/quotes/quotes.module';
 import { StorefrontQnaModule } from './modules/storefront/qna/qna.module';
@@ -92,6 +93,7 @@ import { SitemapModule } from './modules/storefront/sitemap/sitemap.module';
     NewsletterModule,
     StorefrontMerchandisingModule,
     StorefrontCmsModule,
+    StorefrontMenusModule,
     StorefrontBundlesModule,
     StorefrontQuotesModule,
     StorefrontQnaModule,

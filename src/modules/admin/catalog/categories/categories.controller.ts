@@ -27,7 +27,7 @@ export class CategoriesController {
 
   @Get()
   list(@Query() query: ListCategoriesQueryDto) {
-    return this.categoriesService.list(query.page!, query.perPage!, query.parentId, query.includeDeleted);
+    return this.categoriesService.list(query.page!, query.perPage!, query.parentId, query.includeDeleted, query.q);
   }
 
   @Get(':id')

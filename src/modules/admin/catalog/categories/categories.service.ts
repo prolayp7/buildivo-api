@@ -38,8 +38,12 @@ export class CategoriesService {
     return { createMany: { data: faqs.map((faq, index) => ({ question: faq.question, answer: faq.answer, sortOrder: index })) } };
   }
 
-  async list(page: number, perPage: number, parentId?: number, includeDeleted = false) {
-    const where = { ...(includeDeleted ? {} : { deletedAt: null }), ...(parentId !== undefined ? { parentId } : {}) };
+  async list(page: number, perPage: number, parentId?: number, includeDeleted = false, q?: string) {
+    const where = {
+      ...(includeDeleted ? {} : { deletedAt: null }),
+      ...(parentId !== undefined ? { parentId } : {}),
+      ...(q ? { title: { contains: q, mode: 'insensitive' as const } } : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.category.findMany({
         where,

@@ -71,7 +71,7 @@ async function main() {
   }
 
   // Tax rates
-  const standardVat = await prisma.taxRate.upsert({
+  await prisma.taxRate.upsert({
     where: { title: 'Standard' },
     update: {},
     create: { title: 'Standard', ratePercent: 20.0, isDefault: true },
@@ -116,229 +116,9 @@ async function main() {
     });
   }
 
-  // Category tree (subset from requirement.md)
-  // Note: Category.slug is no longer a Prisma `@unique` field (it's enforced via a
-  // partial unique index scoped to live rows instead, so soft-deleted slugs can be
-  // reused - see the schema_review_fixes migration), so it can't be used in an
-  // `upsert`/`findUnique` where-clause. Fall back to findFirst + conditional create.
-  const findOrCreateCategory = (where: { slug: string }, create: Parameters<typeof prisma.category.create>[0]['data']) =>
-    prisma.category.findFirst({ where: { ...where, deletedAt: null } }).then((existing) =>
-      existing ?? prisma.category.create({ data: create }),
-    );
-
-  const pcComponents = await findOrCreateCategory(
-    { slug: 'pc-components' },
-    { title: 'PC Components', slug: 'pc-components', sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'cpus-processors' },
-    { title: 'CPUs / Processors', slug: 'cpus-processors', parentId: pcComponents.id, sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'graphics-cards' },
-    { title: 'Graphics Cards', slug: 'graphics-cards', parentId: pcComponents.id, sortOrder: 2 },
-  );
-  await findOrCreateCategory(
-    { slug: 'motherboards' },
-    { title: 'Motherboards', slug: 'motherboards', parentId: pcComponents.id, sortOrder: 3 },
-  );
-  await findOrCreateCategory(
-    { slug: 'memory-ram' },
-    { title: 'Memory / RAM', slug: 'memory-ram', parentId: pcComponents.id, sortOrder: 4 },
-  );
-  await findOrCreateCategory(
-    { slug: 'storage' },
-    { title: 'Storage', slug: 'storage', parentId: pcComponents.id, sortOrder: 5 },
-  );
-  await findOrCreateCategory(
-    { slug: 'pc-cases' },
-    { title: 'PC Cases', slug: 'pc-cases', parentId: pcComponents.id, sortOrder: 6 },
-  );
-  await findOrCreateCategory(
-    { slug: 'power-supplies' },
-    { title: 'Power Supplies', slug: 'power-supplies', parentId: pcComponents.id, sortOrder: 7 },
-  );
-  await findOrCreateCategory(
-    { slug: 'cooling' },
-    { title: 'Cooling', slug: 'cooling', parentId: pcComponents.id, sortOrder: 8 },
-  );
-
-  const computers = await findOrCreateCategory(
-    { slug: 'computers' },
-    { title: 'Computers', slug: 'computers', sortOrder: 2 },
-  );
-  await findOrCreateCategory(
-    { slug: 'gaming-pcs' },
-    { title: 'Gaming PCs', slug: 'gaming-pcs', parentId: computers.id, sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'desktop-pcs' },
-    { title: 'Desktop PCs', slug: 'desktop-pcs', parentId: computers.id, sortOrder: 2 },
-  );
-  await findOrCreateCategory(
-    { slug: 'workstations' },
-    { title: 'Workstations', slug: 'workstations', parentId: computers.id, sortOrder: 3 },
-  );
-  await findOrCreateCategory(
-    { slug: 'mini-pcs' },
-    { title: 'Mini PCs', slug: 'mini-pcs', parentId: computers.id, sortOrder: 4 },
-  );
-
-  const laptops = await findOrCreateCategory(
-    { slug: 'laptops' },
-    { title: 'Laptops', slug: 'laptops', sortOrder: 3 },
-  );
-  await findOrCreateCategory(
-    { slug: 'gaming-laptops' },
-    { title: 'Gaming Laptops', slug: 'gaming-laptops', parentId: laptops.id, sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'business-laptops' },
-    { title: 'Business Laptops', slug: 'business-laptops', parentId: laptops.id, sortOrder: 2 },
-  );
-  await findOrCreateCategory(
-    { slug: 'ultrabooks' },
-    { title: 'Ultrabooks', slug: 'ultrabooks', parentId: laptops.id, sortOrder: 3 },
-  );
-
-  const peripherals = await findOrCreateCategory(
-    { slug: 'peripherals' },
-    { title: 'Peripherals', slug: 'peripherals', sortOrder: 4 },
-  );
-  await findOrCreateCategory(
-    { slug: 'monitors' },
-    { title: 'Monitors', slug: 'monitors', parentId: peripherals.id, sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'keyboards' },
-    { title: 'Keyboards', slug: 'keyboards', parentId: peripherals.id, sortOrder: 2 },
-  );
-  await findOrCreateCategory(
-    { slug: 'mice' },
-    { title: 'Mice', slug: 'mice', parentId: peripherals.id, sortOrder: 3 },
-  );
-  await findOrCreateCategory(
-    { slug: 'headsets' },
-    { title: 'Headsets', slug: 'headsets', parentId: peripherals.id, sortOrder: 4 },
-  );
-  await findOrCreateCategory(
-    { slug: 'webcams' },
-    { title: 'Webcams', slug: 'webcams', parentId: peripherals.id, sortOrder: 5 },
-  );
-
-  const networking = await findOrCreateCategory(
-    { slug: 'networking' },
-    { title: 'Networking', slug: 'networking', sortOrder: 5 },
-  );
-  for (const [title, slug, sortOrder] of [
-    ['Routers', 'routers', 1],
-    ['Network Switches', 'network-switches', 2],
-    ['Wireless Adapters', 'wireless-adapters', 3],
-  ] as const) {
-    await findOrCreateCategory({ slug }, { title, slug, parentId: networking.id, sortOrder });
-  }
-
-  const software = await findOrCreateCategory(
-    { slug: 'software' },
-    { title: 'Software', slug: 'software', sortOrder: 6 },
-  );
-  await findOrCreateCategory(
-    { slug: 'operating-systems' },
-    { title: 'Operating Systems', slug: 'operating-systems', parentId: software.id, sortOrder: 1 },
-  );
-  await findOrCreateCategory(
-    { slug: 'security-software' },
-    { title: 'Security Software', slug: 'security-software', parentId: software.id, sortOrder: 2 },
-  );
-
-  // Brands
-  for (const title of [
-    'AMD',
-    'NVIDIA',
-    'Intel',
-    'ASUS',
-    'Acer',
-    'Apple',
-    'Corsair',
-    'Crucial',
-    'Dell',
-    'Gigabyte',
-    'HP',
-    'Kingston',
-    'Lenovo',
-    'Logitech',
-    'MSI',
-    'NZXT',
-    'Razer',
-    'Samsung',
-    'Seagate',
-    'Western Digital',
-  ]) {
-    await prisma.brand.upsert({
-      where: { slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') },
-      update: { title, status: 'ACTIVE' },
-      create: { title, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') },
-    });
-  }
-
-  // Suppliers
-  const suppliers = [
-    { title: 'TD SYNNEX UK', slug: 'td-synnex-uk', description: 'UK technology distributor for hardware, software, and cloud products.' },
-    { title: 'Ingram Micro UK', slug: 'ingram-micro-uk', description: 'Technology product and supply-chain distributor.' },
-    { title: 'Exertis UK', slug: 'exertis-uk', description: 'UK distributor for computing, components, and consumer technology.' },
-    { title: 'CMS Distribution', slug: 'cms-distribution', description: 'Specialist distributor for business and consumer technologies.' },
-    { title: 'Westcoast', slug: 'westcoast', description: 'UK distributor for computing hardware, software, and services.' },
-  ];
-  for (const supplier of suppliers) {
-    await prisma.supplier.upsert({
-      where: { slug: supplier.slug },
-      update: { title: supplier.title, description: supplier.description, status: 'ACTIVE' },
-      create: supplier,
-    });
-  }
-
-  /* // Demo product + variant (superseded by the complete 620-product catalogue seed)
-  // Product.slug and ProductVariant.slug are likewise no longer `@unique` (same partial-index
-  // reasoning as Category.slug above), so use findFirst-or-create here too.
-  const graphicsCards = await prisma.category.findFirstOrThrow({ where: { slug: 'graphics-cards' } });
-  const nvidia = await prisma.brand.findUniqueOrThrow({ where: { slug: 'nvidia' } });
-  const newCondition = await prisma.productCondition.findUniqueOrThrow({ where: { slug: 'new' } });
-  const demoProduct = await prisma.product.findFirst({ where: { slug: 'nvidia-geforce-rtx-4070' } }).then(
-    (existing) =>
-      existing ??
-      prisma.product.create({
-        data: {
-          categoryId: graphicsCards.id,
-          brandId: nvidia.id,
-          productConditionId: newCondition.id,
-          taxRateId: standardVat.id,
-          title: 'NVIDIA GeForce RTX 4070',
-          slug: 'nvidia-geforce-rtx-4070',
-          shortDescription: '12GB GDDR6X graphics card',
-          status: 'ACTIVE',
-        },
-      }),
-  );
-  const demoVariantExisting = await prisma.productVariant.findFirst({ where: { slug: 'nvidia-geforce-rtx-4070-12gb' } });
-  if (!demoVariantExisting) {
-    await prisma.productVariant.create({
-      data: {
-        productId: demoProduct.id,
-        title: '12GB',
-        slug: 'nvidia-geforce-rtx-4070-12gb',
-        price: 549.99,
-        stockQty: 25,
-        isDefault: true,
-      },
-    });
-  }
-  */
-
+  // Buildivo categories, brands, attributes and linked demo products.
   const productSeedResult = await seedProducts(prisma);
-  console.log(
-    `Product catalogue: ${productSeedResult.products} products across ${productSeedResult.categories} categories ` +
-      `(${productSeedResult.created} created, ${productSeedResult.updated} updated).`,
-  );
+  console.log('Buildivo catalogue:', productSeedResult);
 
   // Settings
   await prisma.setting.upsert({
@@ -352,19 +132,120 @@ async function main() {
     create: { key: 'allowed_shipping_countries', value: ['GB'] },
   });
 
-  // Header menu
-  const headerMenu = await prisma.menu.upsert({
-    where: { slug: 'header' },
+  // Department icons - shown on the storefront's category tiles and
+  // department dropdown; falls back to a generic icon in the frontend
+  // adapter when unset, so this only needs to cover the top-level departments.
+  const departmentIcons: Record<string, string> = {
+    'power-tools': 'bolt',
+    'hand-tools': 'construction',
+    'hardware-fixings': 'hardware',
+    'electrical-lighting': 'electrical_services',
+    'plumbing-heating': 'plumbing',
+    'garden-outdoor': 'yard',
+    'building-materials': 'foundation',
+    'painting-decorating': 'format_paint',
+    'safety-ppe': 'shield_person',
+    storage: 'inventory_2',
+  };
+  for (const [slug, icon] of Object.entries(departmentIcons)) {
+    await prisma.category.updateMany({ where: { slug, parentId: null, deletedAt: null }, data: { icon } });
+  }
+
+  // Main menu - the storefront's top nav bar. Each item links to either a
+  // category or a special page (href); the departments dropdown is not a
+  // menu at all, it's auto-derived from the live category tree above.
+  const mainMenu = await prisma.menu.upsert({
+    where: { slug: 'main' },
     update: {},
-    create: { name: 'Header', slug: 'header', location: 'HEADER' },
+    create: { name: 'Main menu', slug: 'main', location: 'HEADER' },
   });
-  const existingComponentsItem = await prisma.menuItem.findFirst({
-    where: { menuId: headerMenu.id, label: 'PC Components' },
+  const topLevelCategories = await prisma.category.findMany({
+    where: { parentId: null, deletedAt: null, status: 'ACTIVE' },
+    orderBy: { sortOrder: 'asc' },
   });
-  if (!existingComponentsItem) {
-    await prisma.menuItem.create({
-      data: { menuId: headerMenu.id, label: 'PC Components', categoryId: pcComponents.id, sortOrder: 1 },
-    });
+  for (const [index, category] of topLevelCategories.entries()) {
+    const existing = await prisma.menuItem.findFirst({ where: { menuId: mainMenu.id, categoryId: category.id } });
+    if (!existing) {
+      await prisma.menuItem.create({ data: { menuId: mainMenu.id, label: category.title, categoryId: category.id, sortOrder: index } });
+    }
+  }
+  const specialPages: { label: string; href: string; icon: string }[] = [
+    { label: 'Deals & Clearance', href: '/deals', icon: 'local_fire_department' },
+    { label: 'Top Brands', href: '/brands', icon: 'star' },
+  ];
+  for (const [index, page] of specialPages.entries()) {
+    const existing = await prisma.menuItem.findFirst({ where: { menuId: mainMenu.id, href: page.href } });
+    if (!existing) {
+      await prisma.menuItem.create({ data: { menuId: mainMenu.id, label: page.label, href: page.href, icon: page.icon, sortOrder: topLevelCategories.length + index } });
+    }
+  }
+
+  // Footer menu - four link columns, admin-editable. Column titles are
+  // top-level items; each column's links are child items (matching the
+  // storefront's site-footer.tsx, which used to hardcode this exact copy).
+  const footerMenu = await prisma.menu.upsert({
+    where: { slug: 'footer' },
+    update: {},
+    create: { name: 'Footer', slug: 'footer', location: 'FOOTER' },
+  });
+  const footerColumns: { title: string; links: { label: string; href: string }[] }[] = [
+    {
+      title: 'Departments',
+      links: [
+        { label: 'Heavy Machinery & Cordless', href: '/c/power-tools' },
+        { label: 'Plumbing & Drainage Supplies', href: '/c/plumbing-heating' },
+        { label: 'Industrial Fixings & Fasteners', href: '/c/hardware-fixings' },
+        { label: 'Commercial Lighting & Cabling', href: '/c/electrical-lighting' },
+        { label: 'Safety Boots & Hi-Vis Wear', href: '/c/safety-ppe' },
+        { label: 'Paints, Primers & Coatings', href: '/c/painting-decorating' },
+        { label: 'Modular Site Storage Packs', href: '/c/storage' },
+      ],
+    },
+    {
+      title: 'Trade & Wholesale',
+      links: [
+        { label: 'Trade Credit Application (Net 30)', href: '/trade' },
+        { label: 'Bulk Purchasing & Tender Quotes', href: '/trade' },
+        { label: 'Dedicated Account Managers', href: '/trade' },
+        { label: 'Site Delivery Logistics', href: '/trade' },
+        { label: 'Export & Offshore Supply', href: '/trade' },
+        { label: 'Contractor Fleet Solutions', href: '/trade' },
+      ],
+    },
+    {
+      title: 'Customer Support',
+      links: [
+        { label: 'Order Tracking & Proof of Delivery', href: '/track-order' },
+        { label: 'Returns, Refunds & Restocking', href: '/help' },
+        { label: 'Warranty & Service Centers', href: '/help' },
+        { label: 'Click & Collect Locations', href: '/branches' },
+        { label: 'Recall & Safety Notices', href: '/help' },
+        { label: 'Contact Technical Desk', href: '/help' },
+      ],
+    },
+    {
+      title: 'Guides & Tools',
+      links: [
+        { label: 'Brick & Mortar Calculator', href: '/calculators' },
+        { label: 'Cable Sizing & Voltage Drops', href: '/calculators' },
+        { label: 'Radiator BTU Heating Guide', href: '/guides' },
+        { label: 'Fixings Load Bearing Charts', href: '/guides' },
+        { label: 'Safety Regulations (HSE/OSHA)', href: '/guides' },
+        { label: 'Apprentice Tool Kits', href: '/guides' },
+      ],
+    },
+  ];
+  for (const [columnIndex, column] of footerColumns.entries()) {
+    let columnItem = await prisma.menuItem.findFirst({ where: { menuId: footerMenu.id, label: column.title, parentId: null } });
+    if (!columnItem) {
+      columnItem = await prisma.menuItem.create({ data: { menuId: footerMenu.id, label: column.title, sortOrder: columnIndex } });
+    }
+    for (const [linkIndex, link] of column.links.entries()) {
+      const existing = await prisma.menuItem.findFirst({ where: { menuId: footerMenu.id, parentId: columnItem.id, href: link.href, label: link.label } });
+      if (!existing) {
+        await prisma.menuItem.create({ data: { menuId: footerMenu.id, parentId: columnItem.id, label: link.label, href: link.href, sortOrder: linkIndex } });
+      }
+    }
   }
 
   // Homepage merchandising - demo content so the storefront home page has
@@ -403,12 +284,18 @@ async function main() {
 
   const findOrCreateBanner = (slug: string, create: Parameters<typeof prisma.banner.create>[0]['data']) =>
     prisma.banner.findFirst({ where: { slug } }).then((existing) => existing ?? prisma.banner.create({ data: create }));
-  await findOrCreateBanner('home-pc-components', {
-    title: 'PC Components', slug: 'home-pc-components', linkType: 'CATEGORY', categoryId: pcComponents.id, position: 'home-top', displayOrder: 1,
-  });
-  await findOrCreateBanner('home-laptops', {
-    title: 'Laptops', slug: 'home-laptops', linkType: 'CATEGORY', categoryId: laptops.id, position: 'home-top', displayOrder: 2,
-  });
+  const powerTools = topLevelCategories.find((c) => c.slug === 'power-tools');
+  if (powerTools) {
+    await findOrCreateBanner('home-power-tools', {
+      title: 'Power Tools', slug: 'home-power-tools', linkType: 'CATEGORY', categoryId: powerTools.id, position: 'home-top', displayOrder: 1,
+    });
+  }
+  const handTools = topLevelCategories.find((c) => c.slug === 'hand-tools');
+  if (handTools) {
+    await findOrCreateBanner('home-hand-tools', {
+      title: 'Hand Tools', slug: 'home-hand-tools', linkType: 'CATEGORY', categoryId: handTools.id, position: 'home-top', displayOrder: 2,
+    });
+  }
 
   const findOrCreateFeaturedSection = (slug: string, create: Parameters<typeof prisma.featuredSection.create>[0]['data']) =>
     prisma.featuredSection.findFirst({ where: { slug } }).then((existing) => existing ?? prisma.featuredSection.create({ data: create }));
@@ -416,41 +303,20 @@ async function main() {
   await findOrCreateFeaturedSection('best-sellers', { title: 'Best Sellers', slug: 'best-sellers', sectionType: 'BEST_SELLER', sortOrder: 2 });
   await findOrCreateFeaturedSection('top-rated', { title: 'Top Rated', slug: 'top-rated', sectionType: 'TOP_RATED', sortOrder: 3 });
 
-  // Homepage section ordering/visibility - seeded to match the storefront's
-  // existing default layout so nothing moves visually until an admin
-  // reorders or hides something from the admin panel.
-  const homepageSectionCount = await prisma.homepageSection.count();
-  if (homepageSectionCount === 0) {
-    await prisma.homepageSection.createMany({
-      data: [
-        { type: 'HERO', label: 'Hero carousel', sortOrder: 0, config: { cards: [
-          { kicker: 'Save up to £220', heading: 'Weekend component deals', description: 'CPUs, memory kits and NVMe drives reduced until Sunday midnight.', ctaLabel: 'See all deals', href: '/category?deals=1', image: '/images/products/Vengeance DDR5 RGB Memory Modules.webp' },
-          { kicker: 'Build service', heading: 'Custom PC configurator', description: 'Pick parts with compatibility checks and wattage estimates.', ctaLabel: 'Start a build', href: '/category?cat=Computers', image: '/images/products/NZXT H5 Flow RGB Showcase.webp' },
-        ] } },
-        { type: 'TRUST_STRIP', label: 'Trust strip', sortOrder: 1 },
-        { type: 'DEALS', label: "Today's deals", sortOrder: 2 },
-        { type: 'FEATURED_PRODUCTS', label: 'Best sellers', sortOrder: 3, config: { slug: 'best-sellers' } },
-        { type: 'NEW_ARRIVALS', label: 'New arrivals', sortOrder: 4 },
-        { type: 'BRANDS', label: 'Shop by brand', sortOrder: 5 },
-        { type: 'BANNERS', label: 'Promotional banners', sortOrder: 6, config: { position: 'home-top' } },
-        { type: 'TESTIMONIALS', label: 'Customer testimonials', sortOrder: 7 },
-        { type: 'BLOG_HIGHLIGHTS', label: 'Latest from the blog', sortOrder: 8 },
-        { type: 'FAQS', label: 'Frequently asked questions', sortOrder: 9 },
-        { type: 'NEWSLETTER', label: 'Newsletter signup', sortOrder: 10, config: { heading: 'Get restock alerts & deal notifications', body: 'One email a week, mostly about stock drops and price cuts. No spam.' } },
-      ],
-    });
-  }
-  // Added in a follow-up batch, once these types existed - findFirst-or-
-  // create per type (rather than another count()===0 guard) so this runs
-  // safely against a DB that already has the first 11 rows seeded.
+  // Homepage section ordering/visibility - one row per section that actually
+  // renders on the storefront homepage (src/app/(storefront)/page.tsx),
+  // in that page's real order. isVisible is the only thing an admin can
+  // change here that the storefront actually respects.
   const findOrCreateHomepageSection = (type: Parameters<typeof prisma.homepageSection.create>[0]['data']['type'], data: Omit<Parameters<typeof prisma.homepageSection.create>[0]['data'], 'type'>) =>
     prisma.homepageSection.findFirst({ where: { type } }).then((existing) => existing ?? prisma.homepageSection.create({ data: { type, ...data } }));
-  await findOrCreateHomepageSection('CATEGORY_SHOWCASE', { label: 'Shop by category', sortOrder: 11 });
-  await findOrCreateHomepageSection('SHOP_BY_NEED', { label: 'Shop by need', sortOrder: 12 });
-  await findOrCreateHomepageSection('GAMING_SHOWCASE', { label: 'Level up your gaming', sortOrder: 13 });
-  await findOrCreateHomepageSection('LAPTOP_SHOWCASE', { label: 'Laptops for work, study & play', sortOrder: 14 });
-  await findOrCreateHomepageSection('BUYING_GUIDES', { label: 'Buying guides', sortOrder: 15 });
-  await findOrCreateHomepageSection('SEO_INTRO', { label: 'SEO intro & special offer', sortOrder: 16 });
+  await findOrCreateHomepageSection('HERO', { label: 'Hero carousel', sortOrder: 0 });
+  await findOrCreateHomepageSection('TRUST_STRIP', { label: 'Trust strip', sortOrder: 1 });
+  await findOrCreateHomepageSection('DEPARTMENTS', { label: 'Shop by Department', sortOrder: 2 });
+  await findOrCreateHomepageSection('FEATURED_PRODUCTS', { label: 'Featured Pro Tools', sortOrder: 3 });
+  await findOrCreateHomepageSection('PROJECT_KITS', { label: 'Shop by Complete Job', sortOrder: 4 });
+  await findOrCreateHomepageSection('TRADE_CTA', { label: 'Unlock Net Pricing & 30-Day Credit Lines', sortOrder: 5 });
+  await findOrCreateHomepageSection('CALCULATORS', { label: 'Interactive Material Calculators', sortOrder: 6 });
+  await findOrCreateHomepageSection('ECOSYSTEM_MATCHER', { label: 'Ecosystem Matcher', sortOrder: 7 });
 
   // Blog & static CMS pages - demo content for the storefront's content pages.
   const blogCategory = await prisma.blogCategory.upsert({

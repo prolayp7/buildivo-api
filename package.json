@@ -17,7 +17,9 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:reset": "prisma migrate reset",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed:catalog": "ts-node prisma/seed-catalog.ts",
+    "test:seed": "jest --config test/jest-seed.json --runInBand"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

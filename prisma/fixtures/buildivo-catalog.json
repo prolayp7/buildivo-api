@@ -1,0 +1,749 @@
+{
+  "categories": [
+    {
+      "slug": "power-tools",
+      "title": "Power Tools"
+    },
+    {
+      "slug": "hand-tools",
+      "title": "Hand Tools"
+    },
+    {
+      "slug": "hardware-fixings",
+      "title": "Hardware & Fixings"
+    },
+    {
+      "slug": "electrical-lighting",
+      "title": "Electrical & Lighting"
+    },
+    {
+      "slug": "plumbing-heating",
+      "title": "Plumbing & Heating"
+    },
+    {
+      "slug": "garden-outdoor",
+      "title": "Garden & Outdoor"
+    },
+    {
+      "slug": "building-materials",
+      "title": "Building Materials"
+    },
+    {
+      "slug": "painting-decorating",
+      "title": "Painting & Decorating"
+    },
+    {
+      "slug": "safety-ppe",
+      "title": "Safety & PPE"
+    },
+    {
+      "slug": "storage",
+      "title": "Storage"
+    },
+    {
+      "slug": "combi-drills-hammer",
+      "title": "Combi Drills & Hammer Drivers",
+      "parentSlug": "power-tools"
+    },
+    {
+      "slug": "drill-drivers-non-hammer",
+      "title": "Drill Drivers (Non-Hammer)",
+      "parentSlug": "power-tools"
+    },
+    {
+      "slug": "impact-drivers",
+      "title": "Impact Drivers",
+      "parentSlug": "power-tools"
+    },
+    {
+      "slug": "sds-rotary-hammers",
+      "title": "SDS / Rotary Hammers",
+      "parentSlug": "power-tools"
+    },
+    {
+      "slug": "angle-grinders",
+      "title": "Angle Grinders",
+      "parentSlug": "power-tools"
+    }
+  ],
+  "brands": [
+    {
+      "title": "DeWalt",
+      "slug": "dewalt"
+    },
+    {
+      "title": "Milwaukee",
+      "slug": "milwaukee"
+    },
+    {
+      "title": "Makita",
+      "slug": "makita"
+    },
+    {
+      "title": "Bosch",
+      "slug": "bosch"
+    },
+    {
+      "title": "Festool",
+      "slug": "festool"
+    },
+    {
+      "title": "ForgeFast",
+      "slug": "forgefast"
+    },
+    {
+      "title": "Stanley FatMax",
+      "slug": "stanley-fatmax"
+    },
+    {
+      "title": "Bollé",
+      "slug": "bolle"
+    },
+    {
+      "title": "Everbuild",
+      "slug": "everbuild"
+    },
+    {
+      "title": "FixerTrade",
+      "slug": "fixertrade"
+    }
+  ],
+  "products": [
+    {
+      "title": "DeWalt DCD996P2 18V XR Brushless 3-Speed Hammer Combi Drill (2x 5.0Ah)",
+      "slug": "dewalt-dcd996p2-18v-xr-brushless-combi-drill",
+      "sku": "DEW-DCD996P2",
+      "brandSlug": "dewalt",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Engineered for harsh jobsite demand. All-metal internal gearing, high-output brushless electronics and impact mechanics tested to exceed 200 hours of continuous masonry work.",
+      "specs": [
+        {
+          "label": "Max Torque (Hard/Soft)",
+          "value": "95 Nm / 65 Nm"
+        },
+        {
+          "label": "No-Load Speed (Gear 1)",
+          "value": "0 - 450 RPM"
+        },
+        {
+          "label": "No-Load Speed (Gear 2)",
+          "value": "0 - 1,300 RPM"
+        },
+        {
+          "label": "No-Load Speed (Gear 3)",
+          "value": "0 - 2,000 RPM"
+        },
+        {
+          "label": "Beats Per Minute (BPM)",
+          "value": "0 - 30,250 BPM"
+        },
+        {
+          "label": "Max Drilling Capacity (Wood)",
+          "value": "55 mm"
+        },
+        {
+          "label": "Max Drilling Capacity (Metal)",
+          "value": "13 mm"
+        },
+        {
+          "label": "Max Drilling Capacity (Masonry)",
+          "value": "16 mm"
+        },
+        {
+          "label": "Chuck Capacity",
+          "value": "1.5 - 13 mm (Keyless, Metal Sleeved)"
+        },
+        {
+          "label": "Battery System",
+          "value": "18V XR Li-Ion (Flexvolt Compatible)"
+        },
+        {
+          "label": "Included Batteries",
+          "value": "2x DCB184 18V 5.0Ah XR"
+        },
+        {
+          "label": "Charger Supplied",
+          "value": "DCB115 Multi-Voltage Rapid Charger"
+        },
+        {
+          "label": "Tool Weight (Bare)",
+          "value": "1.40 kg"
+        },
+        {
+          "label": "Weight with 5.0Ah Pack",
+          "value": "2.13 kg"
+        },
+        {
+          "label": "Overall Head Length",
+          "value": "213 mm"
+        },
+        {
+          "label": "Sound Pressure / Uncertainty",
+          "value": "87 dB(A) / 3 dB(A)"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x DCD996 18V XR Brushless Combi Drill (Body)",
+        "2x DCB184 18V 5.0Ah XR Li-Ion Battery Packs",
+        "1x DCB115 Multi-Voltage Rapid Charger",
+        "1x Belt Hook & Bit Holder",
+        "1x TSTAK Compatible Carry Case"
+      ],
+      "images": [
+        "dewalt-hq.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "v-twin-5ah",
+          "title": "Twin 5.0Ah Kit",
+          "price": 289,
+          "salePrice": 249,
+          "stockQty": 34,
+          "priceTiers": [
+            {
+              "minQty": 3,
+              "unitPrice": 236.56
+            },
+            {
+              "minQty": 6,
+              "unitPrice": 224.1
+            }
+          ]
+        },
+        {
+          "slug": "v-body-only",
+          "title": "Body Only (Bare Unit)",
+          "price": 159,
+          "stockQty": 0
+        },
+        {
+          "slug": "v-single-2ah",
+          "title": "Single 2.0Ah + Charger",
+          "price": 199,
+          "stockQty": 0
+        }
+      ]
+    },
+    {
+      "title": "Milwaukee M18 FPD3-502X Fuel Gen 4 Combi Drill (2x 5.0Ah)",
+      "slug": "milwaukee-m18-fpd3-502x-fuel-gen4",
+      "sku": "MIL-FPD3-502X",
+      "brandSlug": "milwaukee",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Gen 4 Fuel drivetrain with AutoStop control for heavy-duty structural fixing.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "158 Nm"
+        },
+        {
+          "label": "Battery System",
+          "value": "M18 Redlithium"
+        },
+        {
+          "label": "Chuck Capacity",
+          "value": "1.5 - 13 mm"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x M18 FPD3 Drill",
+        "2x 5.0Ah Batteries",
+        "1x Rapid Charger",
+        "1x Case"
+      ],
+      "images": [
+        "milwaukee-featured.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 299,
+          "stockQty": 18
+        }
+      ]
+    },
+    {
+      "title": "Makita DHP486RTJ 18V LXT Brushless Combi Drill Kit",
+      "slug": "makita-dhp486-lxt-brushless-combi",
+      "sku": "MAK-DHP486-62",
+      "brandSlug": "makita",
+      "categorySlug": "combi-drills-hammer",
+      "description": "LXT brushless platform delivering consistent torque across long shifts.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "130 Nm"
+        },
+        {
+          "label": "Build",
+          "value": "Heavy Duty"
+        },
+        {
+          "label": "Supply",
+          "value": "2x Batteries"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x DHP486 Drill",
+        "2x 5.0Ah Batteries",
+        "1x Charger",
+        "1x Makpac Case"
+      ],
+      "images": [
+        "makita-hq.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 315,
+          "salePrice": 279,
+          "stockQty": 4
+        }
+      ]
+    },
+    {
+      "title": "Bosch GSB 18V-110 C ProCORE BiTurbo Combi Drill (Bare Unit)",
+      "slug": "bosch-gsb18v-110-c-biturbo-combi",
+      "sku": "BOS-GSB110-C",
+      "brandSlug": "bosch",
+      "categorySlug": "combi-drills-hammer",
+      "description": "BiTurbo brushless performance with connected KickBack Control.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "110 Nm"
+        },
+        {
+          "label": "Control",
+          "value": "KickBack"
+        },
+        {
+          "label": "Spec",
+          "value": "Bare Unit"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x GSB 18V-110 C Body Only"
+      ],
+      "images": [
+        "bosch-featured.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 232.5,
+          "salePrice": 159,
+          "stockQty": 50
+        }
+      ]
+    },
+    {
+      "title": "Festool TPC 18/4 Quadrive Brushless Combi Drill Set",
+      "slug": "festool-tpc-18-4-quadrive-brushless",
+      "sku": "FES-TPC-18-91",
+      "brandSlug": "festool",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Four-gear Quadrive transmission for precise speed/torque matching.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "75 Nm"
+        },
+        {
+          "label": "Gears",
+          "value": "4-Speed"
+        },
+        {
+          "label": "Case",
+          "value": "Systainer"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x TPC 18/4 Drill",
+        "2x Batteries",
+        "1x Systainer Case"
+      ],
+      "images": [
+        "p-festool-tpc.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 489,
+          "stockQty": 8
+        }
+      ]
+    },
+    {
+      "title": "DeWalt DCD796N 18V XR Compact Hammer Drill (Bare Unit)",
+      "slug": "dewalt-dcd796n-18v-compact-hammer-drill",
+      "sku": "DEW-DCD796N",
+      "brandSlug": "dewalt",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Compact and lightweight for confined-space fixing all day long.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "70 Nm"
+        },
+        {
+          "label": "Gears",
+          "value": "2-Speed"
+        },
+        {
+          "label": "Format",
+          "value": "Bare Unit"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x DCD796N Body Only"
+      ],
+      "images": [
+        "p-dewalt-dcd796n.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 99.99,
+          "salePrice": 79.99,
+          "stockQty": 120
+        }
+      ]
+    },
+    {
+      "title": "Milwaukee M12 FPD2-202X 12V Sub-Compact Combi Drill",
+      "slug": "milwaukee-m12-fpd2-202x-sub-compact",
+      "sku": "MIL-M12FPD2",
+      "brandSlug": "milwaukee",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Sub-compact 12V platform for tight-access fixing and finishing.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "45 Nm"
+        },
+        {
+          "label": "Weight",
+          "value": "1.4 kg"
+        },
+        {
+          "label": "Cells",
+          "value": "2x 2.0Ah"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x M12 FPD2 Drill",
+        "2x 2.0Ah Batteries",
+        "1x Charger"
+      ],
+      "images": [
+        "p-milwaukee-m12-fpd2.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 189,
+          "stockQty": 15
+        }
+      ]
+    },
+    {
+      "title": "Makita HP333DZ 12V CXT Slide Combi Drill (Bare Unit)",
+      "slug": "makita-hp333dz-12v-cxt-slide-combi",
+      "sku": "MAK-HP333-01",
+      "brandSlug": "makita",
+      "categorySlug": "combi-drills-hammer",
+      "description": "Lightweight CXT slide-pack drill for one-handed finishing work.",
+      "specs": [
+        {
+          "label": "Max Torque",
+          "value": "30 Nm"
+        },
+        {
+          "label": "Weight",
+          "value": "1.1 kg"
+        },
+        {
+          "label": "Format",
+          "value": "Bare Unit"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x HP333DZ Body Only"
+      ],
+      "images": [
+        "p-makita-hp333d.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 44.95,
+          "stockQty": 42
+        }
+      ]
+    },
+    {
+      "title": "ForgeFast Elite Torx Timber Screws 5.0 x 80mm (Tub of 200)",
+      "slug": "forgefast-elite-torx-timber-screws-5x80",
+      "sku": "FOR-FF5080-200",
+      "brandSlug": "forgefast",
+      "categorySlug": "hardware-fixings",
+      "description": "Yellow zinc-plated timber screws with a sharp gimlet point for fast, split-free driving.",
+      "specs": [
+        {
+          "label": "Size",
+          "value": "5.0 x 80mm"
+        },
+        {
+          "label": "Head",
+          "value": "Torx (TX25)"
+        },
+        {
+          "label": "Pack",
+          "value": "200 per tub"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x Tub of 200 screws"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 66,
+          "stockQty": 60
+        }
+      ]
+    },
+    {
+      "title": "Stanley FatMax 8m/26ft Tape Measure Heavy Duty",
+      "slug": "stanley-fatmax-8m-tape-measure",
+      "sku": "STA-FM8M-01",
+      "brandSlug": "stanley-fatmax",
+      "categorySlug": "hand-tools",
+      "description": "Impact-resistant casing with an armor-coated blade for jobsite durability.",
+      "specs": [
+        {
+          "label": "Length",
+          "value": "8m / 26ft"
+        },
+        {
+          "label": "Blade Width",
+          "value": "32mm"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x Tape Measure"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 18.99,
+          "stockQty": 200
+        }
+      ]
+    },
+    {
+      "title": "Bollé Contour Anti-Scratch/Anti-Fog Safety Glasses",
+      "slug": "bolle-contour-safety-glasses",
+      "sku": "BOL-CONT-PS",
+      "brandSlug": "bolle",
+      "categorySlug": "safety-ppe",
+      "description": "Lightweight wraparound safety glasses rated to EN166 for jobsite eye protection.",
+      "specs": [
+        {
+          "label": "Coating",
+          "value": "Anti-Scratch / Anti-Fog"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x Pair of safety glasses"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 9.5,
+          "stockQty": 300
+        }
+      ]
+    },
+    {
+      "title": "Everbuild Stixall Power Adhesive & Sealant (290ml)",
+      "slug": "everbuild-stixall-power-adhesive-sealant",
+      "sku": "EVR-STIX-CLR",
+      "brandSlug": "everbuild",
+      "categorySlug": "building-materials",
+      "description": "High-strength hybrid polymer adhesive and sealant for interior and exterior fixing.",
+      "specs": [
+        {
+          "label": "Volume",
+          "value": "290ml"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x 290ml Cartridge"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 6.85,
+          "stockQty": 500
+        }
+      ]
+    },
+    {
+      "title": "DeWalt Black & Gold HSS Drill Bit Set (29-Piece)",
+      "slug": "dewalt-black-gold-hss-drill-bit-set",
+      "sku": "DEW-BT7072B-QZ",
+      "brandSlug": "dewalt",
+      "categorySlug": "power-tools",
+      "description": "Titanium-coated HSS bits for wood, metal and plastic drilling.",
+      "specs": [
+        {
+          "label": "Pieces",
+          "value": "29"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x 29-piece drill bit set in case"
+      ],
+      "images": [
+        "p-dewalt-drillbit-set.jpg"
+      ],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 37.99,
+          "salePrice": 29.99,
+          "stockQty": 90
+        }
+      ]
+    },
+    {
+      "title": "Collated Drywall Screws 3.5 x 35mm (Box of 1,000)",
+      "slug": "collated-drywall-screws-35x35",
+      "sku": "FIX-DW35-1000",
+      "brandSlug": "fixertrade",
+      "categorySlug": "hardware-fixings",
+      "description": "Collated strip screws for autofeed drywall screwguns.",
+      "specs": [
+        {
+          "label": "Pack",
+          "value": "1,000 screws"
+        }
+      ],
+      "whatsInTheBox": [
+        "1x Box of 1,000 collated screws"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 15.5,
+          "salePrice": 12.4,
+          "stockQty": 400
+        }
+      ]
+    },
+    {
+      "title": "DeWalt 32pc Flextorq Bit Set",
+      "slug": "dew-dt70705",
+      "sku": "DEW-DT70705",
+      "brandSlug": "dewalt",
+      "categorySlug": "hardware-fixings",
+      "description": "DeWalt 32pc Flextorq Bit Set",
+      "specs": [],
+      "whatsInTheBox": [
+        "DeWalt 32pc Flextorq Bit Set"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 14.99,
+          "stockQty": 0
+        }
+      ]
+    },
+    {
+      "title": "Bosch 7pc SDS Plus-5X Set",
+      "slug": "bos-2608831",
+      "sku": "BOS-2608831",
+      "brandSlug": "bosch",
+      "categorySlug": "hardware-fixings",
+      "description": "Bosch 7pc SDS Plus-5X Set",
+      "specs": [],
+      "whatsInTheBox": [
+        "Bosch 7pc SDS Plus-5X Set"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 21.5,
+          "stockQty": 0
+        }
+      ]
+    },
+    {
+      "title": "Makita 165mm 24T Wood Blade",
+      "slug": "mak-b09167",
+      "sku": "MAK-B09167",
+      "brandSlug": "makita",
+      "categorySlug": "hardware-fixings",
+      "description": "Makita 165mm 24T Wood Blade",
+      "specs": [],
+      "whatsInTheBox": [
+        "Makita 165mm 24T Wood Blade"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 18,
+          "stockQty": 0
+        }
+      ]
+    },
+    {
+      "title": "Milwaukee M18 5.5Ah Battery",
+      "slug": "mil-hb55",
+      "sku": "MIL-HB55",
+      "brandSlug": "milwaukee",
+      "categorySlug": "hardware-fixings",
+      "description": "Milwaukee M18 5.5Ah Battery",
+      "specs": [],
+      "whatsInTheBox": [
+        "Milwaukee M18 5.5Ah Battery"
+      ],
+      "images": [],
+      "variants": [
+        {
+          "slug": "default",
+          "title": "Default",
+          "price": 89,
+          "stockQty": 0
+        }
+      ]
+    }
+  ]
+}
