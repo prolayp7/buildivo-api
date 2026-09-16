@@ -1,0 +1,2 @@
+import { Module } from '@nestjs/common'; import { BlogController } from './blog.controller'; import { BlogService } from './blog.service'; import { PagesController } from './pages.controller'; import { PagesService } from './pages.service'; import { SupportContentController } from './support-content.controller'; import { SupportContentService } from './support-content.service';
+@Module({ controllers: [BlogController, PagesController, SupportContentController], providers: [BlogService, PagesService, SupportContentService] }) export class CmsModule {}

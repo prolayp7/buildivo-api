@@ -1,0 +1,6 @@
+import { CatalogStatus, EnquiryStatus } from '@prisma/client'; import { Type } from 'class-transformer'; import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'; import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+export class CreateFaqCategoryDto { @IsString() @MinLength(1) @MaxLength(255) name: string; @IsOptional() @IsInt() sortOrder?: number; @IsOptional() @IsEnum(CatalogStatus) status?: CatalogStatus; }
+export class CreateFaqDto { @IsString() @MinLength(1) question: string; @IsString() @MinLength(1) answer: string; @IsOptional() @IsInt() sortOrder?: number; @IsOptional() @IsEnum(CatalogStatus) status?: CatalogStatus; }
+export class CreateTestimonialDto { @IsString() @MinLength(1) @MaxLength(255) name: string; @IsOptional() @IsString() @MaxLength(255) title?: string; @IsString() @MinLength(1) quote: string; @IsInt() @Min(1) @Max(5) stars: number; @IsOptional() @IsInt() sortOrder?: number; @IsOptional() @IsEnum(CatalogStatus) status?: CatalogStatus; }
+export class ListEnquiriesQueryDto extends PaginationQueryDto { @IsOptional() @IsEnum(EnquiryStatus) status?: EnquiryStatus; @IsOptional() @IsString() type?: string; }
+export class UpdateEnquiryDto { @IsEnum(EnquiryStatus) status: EnquiryStatus; }

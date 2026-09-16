@@ -1,0 +1,16 @@
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { FeaturedSectionType, Prisma } from '@prisma/client'; import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateFeaturedSectionDto } from './dto/create-featured-section.dto'; import { UpdateFeaturedSectionDto } from './dto/update-featured-section.dto';
+const include = { category: true, manualProducts: { include: { product: { include: { brand: true, category: true } } }, orderBy: { sortOrder: 'asc' as const } } };
+@Injectable()
+export class FeaturedSectionsService {
+  constructor(private readonly prisma: PrismaService) {}
+  list() { return this.prisma.featuredSection.findMany({ include, orderBy: { sortOrder: 'asc' } }); }
+  private async find(id: number) { const item = await this.prisma.featuredSection.findUnique({ where: { id }, include }); if (!item) throw new NotFoundException('Featured section not found'); return item; }
+  private validate(type: FeaturedSectionType, productIds?: number[]) { if (type === 'MANUAL' && productIds === undefined) throw new BadRequestException('manualProductIds is required for a manual section'); if (type !== 'MANUAL' && productIds?.length) throw new BadRequestException('manualProductIds is only valid for manual sections'); }
+  private async rows(tx: Prisma.TransactionClient, ids: number[]) { const count = await tx.product.count({ where: { id: { in: ids }, deletedAt: null } }); if (count !== ids.length) throw new BadRequestException('One or more manual products are invalid'); return ids.map((productId, sortOrder) => ({ productId, sortOrder })); }
+  async create(dto: CreateFeaturedSectionDto) { this.validate(dto.sectionType, dto.manualProductIds); const { manualProductIds, ...data } = dto; try { return await this.prisma.$transaction(async tx => { const rows = await this.rows(tx, manualProductIds ?? []); return tx.featuredSection.create({ data: { ...data, manualProducts: { create: rows } }, include }); }); } catch (e) { return this.map(e, dto.slug); } }
+  async update(id: number, dto: UpdateFeaturedSectionDto) { const current = await this.find(id); const type = dto.sectionType ?? current.sectionType; const ids = dto.manualProductIds ?? (type === 'MANUAL' ? current.manualProducts.map(x => x.productId) : undefined); this.validate(type, ids); const { manualProductIds: _ids, ...data } = dto; try { return await this.prisma.$transaction(async tx => { const rows = dto.manualProductIds !== undefined ? await this.rows(tx, dto.manualProductIds) : undefined; return tx.featuredSection.update({ where: { id }, data: { ...data, ...(type !== 'MANUAL' ? { manualProducts: { deleteMany: {} } } : rows ? { manualProducts: { deleteMany: {}, create: rows } } : {}) }, include }); }); } catch (e) { return this.map(e, dto.slug ?? current.slug); } }
+  async remove(id: number) { await this.find(id); await this.prisma.featuredSection.delete({ where: { id } }); }
+  private map(error: unknown, slug: string): never { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException(`Featured section slug "${slug}" is already in use`); if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') throw new BadRequestException('Category not found'); throw error; }
+}

@@ -1,0 +1,3 @@
+import { ContentStatus } from '@prisma/client'; import { IsArray, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'; import { PartialType } from '@nestjs/mapped-types';
+export class CreatePageDto { @IsString() @MinLength(1) @MaxLength(255) slug: string; @IsString() @MinLength(1) @MaxLength(255) title: string; @IsOptional() @IsArray() contentBlocks?: Record<string, unknown>[]; @IsOptional() @IsString() @MaxLength(255) metaTitle?: string; @IsOptional() @IsString() metaDescription?: string; @IsOptional() @IsEnum(ContentStatus) status?: ContentStatus; }
+export class UpdatePageDto extends PartialType(CreatePageDto) {}

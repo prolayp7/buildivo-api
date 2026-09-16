@@ -1,0 +1,1 @@
+import { PartialType } from '@nestjs/mapped-types'; import { CreateAutomaticDiscountDto } from './create-automatic-discount.dto'; export class UpdateAutomaticDiscountDto extends PartialType(CreateAutomaticDiscountDto) {}

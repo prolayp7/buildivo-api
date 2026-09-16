@@ -1,0 +1,2 @@
+import { CatalogStatus } from '@prisma/client'; import { IsEnum, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+export class CreateMenuItemDto { @IsOptional() @IsInt() parentId?: number; @IsString() @MinLength(1) @MaxLength(255) label: string; @IsOptional() @IsString() @MaxLength(2048) href?: string; @IsOptional() @IsInt() categoryId?: number; @IsOptional() @IsInt() sortOrder?: number; @IsOptional() @IsEnum(CatalogStatus) status?: CatalogStatus; }

@@ -1,0 +1,4 @@
+import { Type } from 'class-transformer'; import { ArrayMinSize, IsArray, IsInt, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+export class MegaMenuLinkDto { @IsString() @MinLength(1) @MaxLength(255) label: string; @IsOptional() @IsInt() categoryId?: number; @IsOptional() @IsString() @MaxLength(2048) href?: string; @IsOptional() @IsInt() sortOrder?: number; }
+export class MegaMenuColumnDto { @IsOptional() @IsString() @MaxLength(255) title?: string; @IsOptional() @IsInt() sortOrder?: number; @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => MegaMenuLinkDto) links: MegaMenuLinkDto[]; }
+export class UpsertMegaMenuPanelDto { @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => MegaMenuColumnDto) columns: MegaMenuColumnDto[]; }

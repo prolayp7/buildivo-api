@@ -1,0 +1,5 @@
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { AdminAuthGuard } from '../../../common/admin/admin-auth.guard'; import { PermissionsGuard } from '../../../common/admin/permissions.guard'; import { RequirePermissions } from '../../../common/admin/permissions.decorator';
+import { BannersService } from './banners.service'; import { CreateBannerDto } from './dto/create-banner.dto'; import { UpdateBannerDto } from './dto/update-banner.dto';
+@Controller('admin/banners') @UseGuards(AdminAuthGuard, PermissionsGuard) @RequirePermissions('marketing.manage')
+export class BannersController { constructor(private readonly service: BannersService) {} @Get() list() { return this.service.list(); } @Post() @HttpCode(201) create(@Body() dto: CreateBannerDto) { return this.service.create(dto); } @Patch(':id') update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBannerDto) { return this.service.update(id, dto); } @Delete(':id') @HttpCode(204) async remove(@Param('id', ParseIntPipe) id: number): Promise<void> { await this.service.remove(id); } }

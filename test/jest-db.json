@@ -1,0 +1,9 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "rootDir": "..",
+  "testMatch": ["<rootDir>/test/db/**/*.integration.spec.ts"],
+  "setupFiles": ["<rootDir>/test/setup/env.js"],
+  "globalSetup": "<rootDir>/test/setup/global-setup.js",
+  "testTimeout": 30000
+}
