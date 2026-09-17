@@ -17,6 +17,8 @@ export class CreateBrandDto {
   description?: string;
 
   @IsOptional() @IsString() shortDescription?: string;
+  @IsOptional() @IsString() logo?: string;
+  @IsOptional() @IsString() @MaxLength(255) logoAlt?: string;
   @IsOptional() @IsString() @MaxLength(255) metaTitle?: string;
   @IsOptional() @IsString() metaDescription?: string;
 

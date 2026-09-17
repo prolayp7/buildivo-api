@@ -89,11 +89,16 @@ export class StorefrontProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Free-text search: each word must match somewhere (title, SEO title, descriptions,
-  // SKU/MPN, brand, or a spec facet like model/warranty/condition) — matching per word
+  // SKU/MPN, brand, category/parent category name, or a spec facet like
+  // model/warranty/condition) — matching per word
   // rather than the whole phrase as one substring, so word order and filler words like
   // "with" don't cause otherwise-relevant products to be missed.
   private searchConditions(q: string): Prisma.ProductWhereInput[] {
-    const words = q.split(/\s+/).filter(Boolean);
+    // Split glued letter/digit runs ("demo18" -> "demo 18") so a query typed
+    // without a space still matches text that has one, without requiring an
+    // exact-substring hit on the untouched query.
+    const spaced = q.replace(/([a-zA-Z])(\d)/g, '$1 $2').replace(/(\d)([a-zA-Z])/g, '$1 $2');
+    const words = spaced.split(/\s+/).filter(Boolean);
     const lower = words.map((word) => word.toLowerCase());
     const consumed = new Array(words.length).fill(false);
     // Each entry is the set of alternate terms to try for one "slot" in the query —
@@ -131,6 +136,8 @@ export class StorefrontProductsService {
         { sku: { contains: term, mode: 'insensitive' as const } },
         { mpn: { contains: term, mode: 'insensitive' as const } },
         { brand: { title: { contains: term, mode: 'insensitive' as const } } },
+        { category: { title: { contains: term, mode: 'insensitive' as const } } },
+        { category: { parent: { title: { contains: term, mode: 'insensitive' as const } } } },
         // JSON path filters don't support Prisma's `mode: 'insensitive'` (Postgres/MySQL
         // limitation) — these matches are case-sensitive, unlike the string fields above.
         ...SEARCH_SPEC_PATHS.map((path) => ({ specsSummary: { path: [path], string_contains: term } })),
@@ -138,7 +145,36 @@ export class StorefrontProductsService {
     }));
   }
 
-  private buildWhere(query: ListStorefrontProductsQueryDto): Prisma.ProductWhereInput {
+  // Typo/glued-word tolerant fallback for free-text search, using pg_trgm
+  // similarity (see migration 20260917170000_search_trigram) - catches
+  // queries the strict word-by-word matching in searchConditions() misses,
+  // e.g. "uvexsafety" (no space at all) or "uvexsafet" (missing letters).
+  private async fuzzyProductIds(q: string): Promise<number[]> {
+    const term = q.trim();
+    if (term.length < 3) return [];
+    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
+      SELECT p.id
+      FROM products p
+      LEFT JOIN brands b ON b.id = p.brand_id
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.status = 'ACTIVE' AND p.deleted_at IS NULL
+        AND (
+          similarity(p.title, ${term}) > 0.3
+          OR similarity(coalesce(p.sku, ''), ${term}) > 0.4
+          OR similarity(coalesce(b.title, ''), ${term}) > 0.3
+          OR similarity(coalesce(c.title, ''), ${term}) > 0.3
+        )
+      ORDER BY GREATEST(
+        similarity(p.title, ${term}),
+        similarity(coalesce(b.title, ''), ${term}),
+        similarity(coalesce(c.title, ''), ${term})
+      ) DESC
+      LIMIT 50
+    `;
+    return rows.map((row) => row.id);
+  }
+
+  private async buildWhere(query: ListStorefrontProductsQueryDto): Promise<Prisma.ProductWhereInput> {
     const conditions: Prisma.ProductWhereInput[] = [{ status: 'ACTIVE', deletedAt: null }];
 
     if (query.category) {
@@ -167,7 +203,13 @@ export class StorefrontProductsService {
       }
     }
     if (query.q) {
-      conditions.push(...this.searchConditions(query.q));
+      const fuzzyIds = await this.fuzzyProductIds(query.q);
+      conditions.push({
+        OR: [
+          { AND: this.searchConditions(query.q) },
+          ...(fuzzyIds.length ? [{ id: { in: fuzzyIds } }] : []),
+        ],
+      });
     }
     return { AND: conditions };
   }
@@ -274,7 +316,7 @@ export class StorefrontProductsService {
       return { items, meta: { ...buildPaginationMeta(1, items.length || 1, items.length), facets: StorefrontProductsService.emptyFacets } };
     }
 
-    let where = this.buildWhere(query);
+    let where = await this.buildWhere(query);
     let priceOrderedIds: number[] | null = null;
     if (query.priceMin !== undefined || query.priceMax !== undefined || query.onSale || sort === 'price_asc' || sort === 'price_desc' || sort === 'discount_desc') {
       // Use the same primary-variant fallback as card pricing. Fetch full

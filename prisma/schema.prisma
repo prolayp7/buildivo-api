@@ -327,6 +327,8 @@ model Brand {
   slug             String        @unique
   description      String?
   shortDescription String?       @map("short_description")
+  logo             String?
+  logoAlt          String?       @map("logo_alt")
   metaTitle        String?       @map("meta_title")
   metaDescription  String?       @map("meta_description")
   status           CatalogStatus @default(ACTIVE)
