@@ -424,7 +424,7 @@ export class StorefrontProductsService {
     const products = await this.prisma.product.findMany({
       where: { id: { in: ids }, status: 'ACTIVE', deletedAt: null },
       include: {
-        category: { select: { title: true } },
+        category: { select: { title: true, slug: true, parent: { select: { title: true, slug: true } } } },
         brand: { select: { title: true } },
         taxRate: { select: { ratePercent: true } },
         variants: {
@@ -444,6 +444,12 @@ export class StorefrontProductsService {
     const imageByProduct = new Map<number, string>();
     for (const item of media) if (!imageByProduct.has(item.ownerId)) imageByProduct.set(item.ownerId, item.url);
 
+    const reviews = ids.length ? await this.prisma.review.groupBy({
+      by: ['productId'], where: { productId: { in: ids }, status: 'APPROVED' },
+      _avg: { rating: true }, _count: { rating: true },
+    }) : [];
+    const reviewsByProduct = new Map(reviews.map((r) => [r.productId, r]));
+
     const specKeys = new Set<string>();
     for (const p of ordered) {
       const specs = p.specsSummary;
@@ -456,9 +462,10 @@ export class StorefrontProductsService {
         title: p.title,
         slug: p.slug,
         image: imageByProduct.get(p.id) ?? null,
-        category: p.category.title,
+        category: { title: p.category.title, slug: p.category.slug, parent: p.category.parent ? { title: p.category.parent.title, slug: p.category.parent.slug } : null },
         brand: p.brand?.title ?? null,
         vatRatePercent: p.taxRate?.ratePercent ?? null,
+        reviewSummary: { average: reviewsByProduct.get(p.id)?._avg.rating ?? 0, count: reviewsByProduct.get(p.id)?._count.rating ?? 0 },
         ...pricingOf(p.variants),
       })),
       specifications: [...specKeys].sort().map((key) => ({

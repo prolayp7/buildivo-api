@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { OptionalCustomerAuthGuard } from '../../../common/customer/optional-customer-auth.guard';
 import { CustomerAuthGuard } from '../../../common/customer/customer-auth.guard';
 import { CurrentCustomer } from '../../../common/customer/current-customer.decorator';
@@ -24,5 +24,15 @@ export class StorefrontQuotesController {
   @Get(':uuid') @UseGuards(CustomerAuthGuard)
   detail(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('uuid') uuid: string) {
     return this.service.detail(customer.id, uuid);
+  }
+
+  @Patch(':uuid/accept') @UseGuards(CustomerAuthGuard)
+  accept(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('uuid') uuid: string) {
+    return this.service.accept(customer.id, uuid);
+  }
+
+  @Patch(':uuid/decline') @UseGuards(CustomerAuthGuard)
+  decline(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('uuid') uuid: string) {
+    return this.service.decline(customer.id, uuid);
   }
 }

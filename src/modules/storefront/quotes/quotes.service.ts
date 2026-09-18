@@ -61,4 +61,16 @@ export class StorefrontQuotesService {
     if (!item) throw new NotFoundException('Quote request not found');
     return item;
   }
+
+  async accept(customerId: number, uuid: string) {
+    const quote = await this.detail(customerId, uuid);
+    if (quote.status !== 'QUOTED') throw new BadRequestException('Only a priced quote can be accepted');
+    return this.prisma.quoteRequest.update({ where: { id: quote.id }, data: { status: 'ACCEPTED' }, include: quoteItemInclude });
+  }
+
+  async decline(customerId: number, uuid: string) {
+    const quote = await this.detail(customerId, uuid);
+    if (quote.status !== 'QUOTED') throw new BadRequestException('Only a priced quote can be declined');
+    return this.prisma.quoteRequest.update({ where: { id: quote.id }, data: { status: 'DECLINED' }, include: quoteItemInclude });
+  }
 }
