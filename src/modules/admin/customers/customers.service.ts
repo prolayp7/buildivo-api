@@ -96,6 +96,11 @@ export class CustomersService {
     return safe;
   }
 
+  async remove(id: number): Promise<void> {
+    await this.detail(id);
+    await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
   async orders(id: number, page: number, perPage: number) {
     await this.detail(id);
     const where = { userId: id };

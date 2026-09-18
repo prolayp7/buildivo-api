@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 
 describe('Storefront Addresses (e2e)', () => {
   let app: INestApplication;
@@ -10,11 +10,8 @@ describe('Storefront Addresses (e2e)', () => {
     ({ app } = await createTestApp());
 
     const email = `address-customer-${Date.now()}@example.com`;
-    const res = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Alex', lastName: 'Smith' })
-      .expect(201);
-    accessToken = res.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Alex', lastName: 'Smith' });
+    accessToken = auth.accessToken;
   });
 
   afterAll(async () => {

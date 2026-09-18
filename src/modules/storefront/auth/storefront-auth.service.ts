@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -9,6 +10,7 @@ import { OtpPurpose } from './dto/otp.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { EmailService } from '../../email/email.service';
 import { emailVerificationEmail, passwordResetEmail, welcomeEmail } from '../../email/email-templates';
+import { StorefrontProductsService } from '../catalog/products/storefront-products.service';
 
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -32,7 +34,23 @@ export class StorefrontAuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private readonly products: StorefrontProductsService,
   ) {}
+
+  // Fire-and-forget, same as createOtp()'s callers - product lookups and the
+  // SMTP send should never delay the register() response. The verification
+  // code rides along in this same email rather than a separate one.
+  private async sendWelcomeEmail(email: string, firstName: string, code: string): Promise<void> {
+    const bestSellers = await this.products.bestSellers(3).catch(() => []);
+    const source = bestSellers.length ? bestSellers : await this.products.featured(3).catch(() => []);
+    const products = source.map((item) => ({
+      name: item.title,
+      meta: item.sku ? `SKU: ${item.sku}` : item.inStock ? 'In stock now' : 'Available to order',
+      price: Number(item.salePrice ?? item.price ?? 0),
+    }));
+    const welcome = welcomeEmail({ firstName, products, code });
+    await this.emailService.send(email, welcome.subject, welcome.html);
+  }
 
   private async issueTokenPair(userId: number): Promise<TokenPair> {
     const accessToken = await this.jwtService.signAsync({ sub: userId });
@@ -49,7 +67,7 @@ export class StorefrontAuthService {
     return { accessToken, refreshToken };
   }
 
-  private async issueOtp(email: string, purpose: OtpPurpose): Promise<string> {
+  private async createOtp(email: string, purpose: OtpPurpose): Promise<string> {
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
     await this.prisma.otpVerification.create({
       data: {
@@ -60,36 +78,46 @@ export class StorefrontAuthService {
         expiresAt: new Date(Date.now() + OTP_TTL_MS),
       },
     });
+    return code;
+  }
+
+  private async issueOtp(email: string, purpose: OtpPurpose): Promise<string> {
+    const code = await this.createOtp(email, purpose);
     const message = purpose === 'password_reset' ? passwordResetEmail({ code }) : emailVerificationEmail({ code });
     void this.emailService.send(email, message.subject, message.html);
     return code;
   }
 
-  async register(dto: RegisterDto): Promise<TokenPair & { customer: AuthenticatedCustomer; otp?: string }> {
+  // No tokens are issued here - the account stays unverified until the emailed
+  // code is confirmed via verifyOtp(), which is what actually logs them in.
+  async register(dto: RegisterDto): Promise<{ customer: AuthenticatedCustomer; otp?: string }> {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findFirst({
       where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null },
     });
     if (existing) throw new ConflictException('An account with that email already exists');
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        passwordHash: await bcrypt.hash(dto.password, 10),
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
-        phone: dto.phone,
-      },
-    });
+    const user = await this.prisma.user
+      .create({
+        data: {
+          email,
+          passwordHash: await bcrypt.hash(dto.password, 10),
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName.trim(),
+          phone: dto.phone,
+        },
+      })
+      .catch((error) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictException('An account with that email already exists');
+        }
+        throw error;
+      });
 
-    const otp = await this.issueOtp(email, 'email_verification');
-    const tokens = await this.issueTokenPair(user.id);
-
-    const welcome = welcomeEmail({ firstName: user.firstName });
-    void this.emailService.send(email, welcome.subject, welcome.html);
+    const otp = await this.createOtp(email, 'email_verification');
+    void this.sendWelcomeEmail(email, user.firstName, otp);
 
     return {
-      ...tokens,
       customer: toAuthenticatedCustomer(user),
       ...(process.env.NODE_ENV !== 'production' ? { otp } : {}),
     };
@@ -97,10 +125,16 @@ export class StorefrontAuthService {
 
   async login(email: string, password: string): Promise<TokenPair & { customer: AuthenticatedCustomer }> {
     const user = await this.prisma.user.findFirst({
-      where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' }, deletedAt: null, status: 'ACTIVE' },
+      where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' }, deletedAt: null },
     });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Your account has been suspended. Contact support for help.');
+    }
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException('Please verify your email before signing in. Check your inbox for the code we sent you.');
     }
 
     const tokens = await this.issueTokenPair(user.id);
@@ -153,15 +187,23 @@ export class StorefrontAuthService {
     return otp;
   }
 
-  async verifyOtp(email: string, purpose: OtpPurpose, code: string): Promise<{ verified: true }> {
+  // Verifying an email_verification code also activates and logs the customer
+  // in, since it's the confirmation step registration is waiting on. Other
+  // purposes (password_reset) just confirm the code, no session is implied.
+  async verifyOtp(email: string, purpose: OtpPurpose, code: string): Promise<{ verified: true } & Partial<TokenPair & { customer: AuthenticatedCustomer }>> {
     await this.consumeOtp(email, purpose, code);
-    if (purpose === 'email_verification') {
-      await this.prisma.user.updateMany({
-        where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' }, deletedAt: null },
-        data: { emailVerifiedAt: new Date() },
-      });
-    }
-    return { verified: true };
+    if (purpose !== 'email_verification') return { verified: true };
+
+    const normalizedEmail = email.trim().toLowerCase();
+    await this.prisma.user.updateMany({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' }, deletedAt: null },
+      data: { emailVerifiedAt: new Date() },
+    });
+    const user = await this.prisma.user.findFirst({ where: { email: { equals: normalizedEmail, mode: 'insensitive' }, deletedAt: null } });
+    if (!user) return { verified: true };
+
+    const tokens = await this.issueTokenPair(user.id);
+    return { verified: true, ...tokens, customer: toAuthenticatedCustomer(user) };
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {

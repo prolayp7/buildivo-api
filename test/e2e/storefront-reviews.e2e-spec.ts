@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 describe('Storefront Reviews (e2e)', () => {
@@ -22,11 +22,8 @@ describe('Storefront Reviews (e2e)', () => {
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
 
     const email = `reviewer-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Rev', lastName: 'Iewer' })
-      .expect(201);
-    accessToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Rev', lastName: 'Iewer' });
+    accessToken = auth.accessToken;
 
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
@@ -79,14 +76,11 @@ describe('Storefront Reviews (e2e)', () => {
 
   it("rejects an orderItemId that does not belong to the customer's order", async () => {
     const otherEmail = `other-reviewer-${Date.now()}@example.com`;
-    const otherRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email: otherEmail, password: 'SuperSecret123!', firstName: 'Other', lastName: 'Person' })
-      .expect(201);
+    const otherAuth = await registerAndVerify(app, { email: otherEmail, password: 'SuperSecret123!', firstName: 'Other', lastName: 'Person' });
 
     await request(app.getHttpServer())
       .post('/api/v1/reviews')
-      .set('Authorization', `Bearer ${otherRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${otherAuth.accessToken}`)
       .send({ productId, orderItemId, rating: 3 })
       .expect(400);
   });

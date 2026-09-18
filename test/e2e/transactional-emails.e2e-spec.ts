@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { EmailService } from '../../src/modules/email/email.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
@@ -43,11 +43,8 @@ describe('Transactional email triggers (e2e)', () => {
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
 
     const email = `email-trigger-${Date.now()}-${Math.random()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Trig', lastName: 'Ger' })
-      .expect(201);
-    const customerToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Trig', lastName: 'Ger' });
+    const customerToken = auth.accessToken;
 
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')

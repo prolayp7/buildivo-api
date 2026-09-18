@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
 
@@ -68,11 +68,8 @@ async function createOrderAndPaypalAttempt(app: INestApplication, prisma: Prisma
   const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
 
   const email = `${emailPrefix}-${Date.now()}@example.com`;
-  const registerRes = await request(app.getHttpServer())
-    .post('/api/v1/auth/register')
-    .send({ email, password: 'SuperSecret123!', firstName: 'PayPal', lastName: 'Case' })
-    .expect(201);
-  const token = registerRes.body.data.accessToken;
+  const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'PayPal', lastName: 'Case' });
+  const token = auth.accessToken;
 
   await request(app.getHttpServer())
     .post('/api/v1/cart/items')
@@ -169,18 +166,15 @@ describe('PayPal payments - configured (e2e)', () => {
     await prisma.productVariant.update({ where: { id: variantId }, data: { stockQty: 20 } });
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
     const email = `paypal-retry-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Retry', lastName: 'Case' })
-      .expect(201);
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Retry', lastName: 'Case' });
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${auth.accessToken}`)
       .send({ productVariantId: variantId, quantity: 1 })
       .expect(201);
     const orderRes = await request(app.getHttpServer())
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${auth.accessToken}`)
       .send({ shippingAddress: { fullName: 'Retry Case', line1: '1 Retry Rd', city: 'Hull', postcode: 'HU1 1AA' }, shippingMethodId: method!.id })
       .expect(201);
     const idempotencyKey = `paypal-retry-${Date.now()}`;

@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
 
@@ -27,11 +27,8 @@ describe('Storefront order visible and manageable in admin (e2e)', () => {
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
 
     const email = `regression-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Reg', lastName: 'Ression' })
-      .expect(201);
-    customerToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Reg', lastName: 'Ression' });
+    customerToken = auth.accessToken;
 
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
@@ -153,14 +150,11 @@ describe('Storefront order visible and manageable in admin (e2e)', () => {
 
   it('does not leak this order to another customer', async () => {
     const otherEmail = `regression-other-${Date.now()}@example.com`;
-    const otherRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email: otherEmail, password: 'SuperSecret123!', firstName: 'Other', lastName: 'Customer' })
-      .expect(201);
+    const otherAuth = await registerAndVerify(app, { email: otherEmail, password: 'SuperSecret123!', firstName: 'Other', lastName: 'Customer' });
 
     await request(app.getHttpServer())
       .get(`/api/v1/orders/${orderUuid}`)
-      .set('Authorization', `Bearer ${otherRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${otherAuth.accessToken}`)
       .expect(404);
   });
 });

@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common'; import * as request from 'supertest'; import { PrismaService } from '../../src/prisma/prisma.service'; import { loginAsSuperAdmin } from './helpers/admin-auth'; import { createTestApp } from './setup';
+import { INestApplication } from '@nestjs/common'; import * as request from 'supertest'; import { PrismaService } from '../../src/prisma/prisma.service'; import { loginAsSuperAdmin } from './helpers/admin-auth'; import { createTestApp, registerAndVerify } from './setup';
 describe('Admin Notifications and Reports (e2e)', () => {
   let app: INestApplication; let prisma: PrismaService; let token: string; let notificationId: string;
   beforeAll(async () => { ({ app, prisma } = await createTestApp()); token = await loginAsSuperAdmin(app); });
@@ -24,18 +24,15 @@ describe('Admin Notifications and Reports (e2e)', () => {
       await prisma.coupon.create({ data: { code: couponCode, name: 'Reports drill-down test', discountType: 'FIXED', discountAmount: 3, excludeSaleItems: false } });
 
       const email = `reports-drilldown-${Date.now()}@example.com`;
-      const registerRes = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ email, password: 'SuperSecret123!', firstName: 'Report', lastName: 'Drilldown' })
-        .expect(201);
+      const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Report', lastName: 'Drilldown' });
       await request(app.getHttpServer())
         .post('/api/v1/cart/items')
-        .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+        .set('Authorization', `Bearer ${auth.accessToken}`)
         .send({ productVariantId: variantId, quantity: 1 })
         .expect(201);
       await request(app.getHttpServer())
         .post('/api/v1/orders')
-        .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+        .set('Authorization', `Bearer ${auth.accessToken}`)
         .send({
           shippingAddress: { fullName: 'Report Drilldown', line1: '1 Report Rd', city: 'Glasgow', postcode: 'G1 1AA' },
           shippingMethodId: method!.id,

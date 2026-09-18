@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { createHmac } from 'crypto';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
 
@@ -101,11 +101,8 @@ describe('Stripe webhook - configured (e2e)', () => {
 
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
     const email = `webhook-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Web', lastName: 'Hook' })
-      .expect(201);
-    const customerToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Web', lastName: 'Hook' });
+    const customerToken = auth.accessToken;
 
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
@@ -206,18 +203,15 @@ describe('Stripe webhook - configured (e2e)', () => {
     const method = await prisma.shippingMethod.findFirst({ where: { status: 'ACTIVE' } });
 
     const email = `webhook-fail-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Fail', lastName: 'Case' })
-      .expect(201);
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Fail', lastName: 'Case' });
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
-      .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${auth.accessToken}`)
       .send({ productVariantId: variantId, quantity: 1 })
       .expect(201);
     const orderRes = await request(app.getHttpServer())
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${registerRes.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${auth.accessToken}`)
       .send({ shippingAddress: { fullName: 'Fail Case', line1: '2 Fail St', city: 'York', postcode: 'YO1 1AA' }, shippingMethodId: method!.id })
       .expect(201);
 

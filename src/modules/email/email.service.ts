@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LOGO_SRC_PLACEHOLDER, STOREFRONT_URL } from './email-templates';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3000';
-const FALLBACK_LOGO_URL = `${STOREFRONT_URL}/images/logo/rigforge-logo-full.png`;
+const FALLBACK_LOGO_URL = `${STOREFRONT_URL}/images/buildivo.png`;
 
 interface SmtpConfig {
   host: string;

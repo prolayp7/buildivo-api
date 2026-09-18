@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 
 describe('Storefront Wishlist (e2e)', () => {
   let app: INestApplication;
@@ -11,11 +11,8 @@ describe('Storefront Wishlist (e2e)', () => {
     ({ app } = await createTestApp());
 
     const email = `wishlist-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Wish', lastName: 'List' })
-      .expect(201);
-    accessToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Wish', lastName: 'List' });
+    accessToken = auth.accessToken;
 
     const list = await request(app.getHttpServer()).get('/api/v1/products?perPage=1').expect(200);
     const detail = await request(app.getHttpServer()).get(`/api/v1/products/${list.body.data[0].slug}`).expect(200);

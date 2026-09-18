@@ -66,18 +66,18 @@ function shell(title: string, preheader: string, bodyRows: string, footerVariant
 <tr><td align="center" style="padding:40px 16px;">
 <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;border:1px solid ${C.line};border-radius:12px;overflow:hidden;">
   <tr><td style="background:${C.black};padding:26px 40px;" align="center">
-    <img src="${LOGO_SRC_PLACEHOLDER}" width="120" alt="RigForge" style="display:block;border-radius:6px;">
+    <img src="${LOGO_SRC_PLACEHOLDER}" width="120" alt="Buildivo" style="display:block;border-radius:6px;">
   </td></tr>
 ${bodyRows}
   <tr><td style="background:${C.black};padding:28px 40px;" class="px" align="center">
     <p style="margin:0 0 10px;font:13px/1.6 ${FONT};color:${C.footInk};">
-      UK Shop Ltd &middot; 14 Foundry Row, Manchester, M1 4AN, United Kingdom
+      Buildivo Industrial Supply Ltd &middot; Unit 12, Orbit Business Park, Dartford, Kent DA1 5FE, United Kingdom
     </p>
     <p style="margin:0;font:12px/1.8 ${FONT};color:${C.footFaint};">
       ${unsub} &nbsp;&middot;&nbsp;
       <a href="${STOREFRONT_URL}/pages/about-us" style="color:${C.footInk};text-decoration:underline;">Contact support</a>
     </p>
-    <p style="margin:14px 0 0;font:11px/1.6 ${FONT};color:#4c5a70;">&copy; ${new Date().getFullYear()} UK Shop Ltd. All rights reserved.</p>
+    <p style="margin:14px 0 0;font:11px/1.6 ${FONT};color:#4c5a70;">&copy; ${new Date().getFullYear()} Buildivo Industrial Supply Ltd. All rights reserved.</p>
   </td></tr>
 </table>
 </td></tr>
@@ -277,16 +277,39 @@ export function orderRefundedEmail(params: { orderNumber: string; refundAmount: 
 /* Account                                                                  */
 /* ------------------------------------------------------------------------ */
 
-export function welcomeEmail(params: { firstName: string }) {
+export function welcomeEmail(params: { firstName: string; products?: EmailItem[]; code?: string }) {
+  const orange = '#ff7900';
   let body = contentOpen();
-  body += h1(`Welcome to UK Shop, ${esc(params.firstName)}`);
-  body += p('Your account is ready. Here&rsquo;s what you get every time you shop with us.');
-  body += p('<b>Fast UK delivery</b> &mdash; next-day options on thousands of in-stock lines.', { size: 14, margin: '0 0 10px' });
-  body += p('<b>Expert support</b> &mdash; real advice from people who build and repair PCs.', { size: 14, margin: '0 0 10px' });
-  body += p('<b>Easy returns</b> &mdash; 30-day returns on almost everything, no fuss.', { size: 14, margin: '0 0 10px' });
-  body += button('Start shopping', STOREFRONT_URL);
+  body += badgeRaw('Account created', '#fff1e5', orange);
+  body += `    <h1 style="margin:0 0 12px;font:700 24px/1.3 ${FONT};color:${C.ink};letter-spacing:-.01em;">Welcome to Buildivo, <span style="color:${orange};">${esc(params.firstName)}</span>.</h1>\n`;
+  body += p('Your trade and retail account is ready. Get commercial net-30 terms, direct trade discounts, and live delivery dispatch tracking across 45,000+ power tools, fixings and plumbing SKUs.');
+  if (params.code) {
+    body += `    <p style="margin:0 0 14px;font:700 13px/1 ${FONT};color:${C.ink};letter-spacing:.02em;">CONFIRM YOUR EMAIL ADDRESS</p>\n`;
+    body += p('Enter this code to verify your email and finish setting up your account.', { size: 13.5, color: C.faint, margin: '0 0 12px' });
+    body += otpBlock(params.code);
+    body += p('This code expires in 10 minutes.', { size: 12.5, color: C.faint, margin: '0 0 24px' });
+  }
+  body += `    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff1e5;border:1px dashed ${orange};border-radius:10px;margin:4px 0 24px;"><tr>
+      <td style="padding:18px 20px;">
+        <p style="margin:0 0 4px;font:700 11px/1 ${FONT};color:#8a4600;letter-spacing:.06em;text-transform:uppercase;">Welcome offer</p>
+        <p style="margin:0;font:15px/1.5 ${FONT};color:${C.ink};">Use code <b style="font-family:monospace;background:#ffffff;border:1px solid ${orange};border-radius:4px;padding:2px 8px;">BLV-WELCOME15</b> for 15% off your first order.</p>
+      </td>
+    </tr></table>\n`;
+  body += factRow([
+    ['Free next-day delivery', 'On orders over &pound;75'],
+    ['30-day hassle-free returns', 'No fuss, no fees'],
+    ['Trade quotes on request', 'Bulk &amp; project pricing'],
+    ['Save your favourites', 'Wishlist &amp; fast reorder'],
+  ]);
+  if (params.products?.length) {
+    body += `    <p style="margin:0 0 14px;font:700 13px/1 ${FONT};color:${C.ink};letter-spacing:.02em;">POPULAR RIGHT NOW</p>\n`;
+    body += itemsBlock(params.products);
+  }
+  body += button('Start shopping', STOREFRONT_URL, { bg: orange, margin: '26px 0 28px' });
+  body += divider('0 0 20px');
+  body += p(`Need help? Call our trade desk on <a href="tel:08004567890" style="color:${orange};font-weight:700;">0800 456 7890</a> &mdash; real advice from people who work on jobsites every day.`, { size: 13.5, color: C.faint, margin: '0' });
   body += contentClose();
-  return { subject: 'Welcome to UK Shop', html: shell('Welcome to UK Shop', "Your account is ready — here's what you get.", body) };
+  return { subject: 'Welcome to Buildivo', html: shell('Welcome to Buildivo', "Your account is ready — here's what you get.", body) };
 }
 
 export function emailVerificationEmail(params: { code: string }) {

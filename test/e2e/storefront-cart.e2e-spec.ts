@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp } from './setup';
+import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 describe('Storefront Cart (e2e)', () => {
@@ -81,11 +81,8 @@ describe('Storefront Cart (e2e)', () => {
     const guestToken = guestAdd.body.data.guestToken;
 
     const email = `cart-customer-${Date.now()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email, password: 'SuperSecret123!', firstName: 'Cart', lastName: 'Tester' })
-      .expect(201);
-    const accessToken = registerRes.body.data.accessToken;
+    const auth = await registerAndVerify(app, { email, password: 'SuperSecret123!', firstName: 'Cart', lastName: 'Tester' });
+    const accessToken = auth.accessToken;
 
     await request(app.getHttpServer())
       .post('/api/v1/cart/merge')
