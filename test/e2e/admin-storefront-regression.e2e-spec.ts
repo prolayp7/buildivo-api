@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { registerAndVerify as registerCustomer } from './setup';
 
 describe('Storefront order visible and manageable in admin (e2e)', () => {
   let app: INestApplication;
@@ -116,7 +117,7 @@ describe('Storefront order visible and manageable in admin (e2e)', () => {
     await prisma.paymentTransaction.create({
       data: {
         orderId: order.id,
-        provider: 'STRIPE',
+        provider: 'MANUAL', // offline payment: refund is recorded locally, no provider call
         providerTransactionId: `test_txn_${orderUuid}`,
         amount: order.total,
         status: 'CAPTURED',
@@ -144,7 +145,7 @@ describe('Storefront order visible and manageable in admin (e2e)', () => {
       .send({ refundAmount: Number(orderItem.subtotal) })
       .expect(201);
 
-    expect(refundRes.body.data.returnRequest.returnStatus).toBe('RECEIVED');
+    expect(refundRes.body.data.returnRequest.returnStatus).toBe('REFUNDED');
     expect(Number(refundRes.body.data.refund.amount)).toBeCloseTo(Number(orderItem.subtotal), 2);
   });
 

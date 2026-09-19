@@ -1,5 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { promises as fs } from 'fs';
+import { basename, join } from 'path';
 import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { buildPaginationMeta, paginationSkipTake } from '../../../common/pagination';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
@@ -7,13 +10,18 @@ import { CartService } from '../cart/cart.service';
 import { StorefrontShippingService } from '../shipping/storefront-shipping.service';
 import { StorefrontCouponsService } from '../coupons/coupons.service';
 import { CheckoutDto } from './dto/checkout.dto';
+import { mediaUploadDirectory } from '../../../bootstrap';
+import { buildInvoicePdf } from './invoice-pdf';
 import { EmailService } from '../../email/email.service';
 import { LowStockAlertService } from '../../email/low-stock-alert.service';
 import { orderConfirmationEmail, orderCancelledEmail } from '../../email/email-templates';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const sharp = require('sharp');
 const CANCELLABLE_STATUSES = ['PENDING', 'AWAITING_PAYMENT', 'PROCESSING'];
 
 const orderDetailInclude = {
+  invoice: true,
   items: { include: { returns: { select: { id: true, returnStatus: true } } } },
   shippingMethod: { select: { id: true, title: true, carrier: true } },
   shipments: { include: { events: { orderBy: { occurredAt: 'desc' as const } } } },
@@ -50,7 +58,15 @@ export class OrdersService {
     return order;
   }
 
-  async checkout(customerId: number | undefined, guestToken: string | undefined, dto: CheckoutDto) {
+  async checkout(customerId: number | undefined, guestToken: string | undefined, dto: CheckoutDto, idempotencyKey?: string) {
+    // a retried/double-submitted checkout with the same key returns the order it already created
+    if (idempotencyKey) {
+      const existing = await this.prisma.order.findUnique({ where: { checkoutKey: idempotencyKey }, select: { uuid: true, userId: true } });
+      if (existing) {
+        if (existing.userId !== (customerId ?? null)) throw new ConflictException('Idempotency-Key was already used');
+        return this.findByUuid(existing.uuid);
+      }
+    }
     const cart = await this.cartService.cartForCheckout(customerId, guestToken);
     const activeItems = cart?.items.filter((i) => !i.savedForLater) ?? [];
     if (!activeItems.length) throw new BadRequestException('Cart is empty');
@@ -128,6 +144,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           orderNumber,
+          checkoutKey: idempotencyKey,
           userId: customerId,
           email,
           phone: dto.phone,
@@ -185,10 +202,12 @@ export class OrdersService {
       });
 
       for (const item of activeItems) {
-        await tx.productVariant.update({
-          where: { id: item.productVariantId },
+        // conditional decrement: a concurrent checkout that took the last units makes this fail instead of overselling
+        const { count } = await tx.productVariant.updateMany({
+          where: { id: item.productVariantId, stockQty: { gte: item.quantity } },
           data: { stockQty: { decrement: item.quantity } },
         });
+        if (count === 0) throw new BadRequestException(`"${item.productVariant.product.title}" just sold out`);
       }
       if (couponResult) {
         await tx.coupon.update({ where: { id: couponResult.coupon.id }, data: { usageCount: { increment: 1 } } });
@@ -198,7 +217,15 @@ export class OrdersService {
       }
 
       return order;
+    }).catch(async (error) => {
+      // lost a race with a concurrent request carrying the same key - return the winner's order
+      if (idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const winner = await this.prisma.order.findUnique({ where: { checkoutKey: idempotencyKey }, select: { uuid: true, userId: true } });
+        if (winner && winner.userId === (customerId ?? null)) return null;
+      }
+      throw error;
     });
+    if (!created) return this.findByUuid((await this.prisma.order.findUniqueOrThrow({ where: { checkoutKey: idempotencyKey } })).uuid);
 
     const confirmation = orderConfirmationEmail({
       orderNumber: created.orderNumber,
@@ -232,6 +259,38 @@ export class OrdersService {
       this.prisma.order.count({ where }),
     ]);
     return { items: orders, meta: buildPaginationMeta(page, perPage, total) };
+  }
+
+  /** Renders the invoice PDF on demand - only for orders that have been paid. */
+  async invoicePdf(customerId: number, uuid: string): Promise<{ buffer: Buffer; filename: string }> {
+    const order = await this.detail(customerId, uuid);
+    if (!order.invoice) throw new ConflictException('An invoice is available once the order has been paid');
+
+    const row = await this.prisma.setting.findUnique({ where: { key: 'general.site' } });
+    const s = (row?.value ?? {}) as Record<string, string | undefined>;
+    let logo: Buffer | null = null;
+    if (s.logo) {
+      // Uploaded logos are usually WebP, which PDFs can't embed - convert to PNG.
+      try { logo = await sharp(join(mediaUploadDirectory, basename(s.logo))).png().toBuffer(); } catch { /* missing/unreadable - text brand only */ }
+    }
+    const num = (v: unknown) => Number(v ?? 0);
+    const lines = order.items.map((item) => {
+      const gross = num(item.subtotal), vat = num(item.vatAmount);
+      return { title: item.titleSnapshot, variant: item.variantTitleSnapshot, sku: item.skuSnapshot, qty: item.quantity, unit: num(item.unitPrice), discount: num(item.discount), rate: num(item.vatRatePercent), vat, gross, net: gross - vat, netUnit: (gross - vat) / item.quantity };
+    });
+    const shipment = order.shipments[0];
+    const name = process.env.STORE_NAME || 'Buildivo';
+    const buffer = await buildInvoicePdf({
+      currency: order.invoice.currency, invoiceNumber: order.invoice.invoiceNumber, orderNumber: order.orderNumber, placedAt: order.placedAt, issuedAt: order.invoice.issuedAt, email: order.email, status: order.status, paymentStatus: order.paymentStatus,
+      billing: { name: order.billingFullName, company: order.billingCompanyName, address: [order.billingLine1, order.billingLine2, [order.billingCity, order.billingPostcode].filter(Boolean).join(' ')].filter(Boolean).join(', ') },
+      shipping: { name: order.shippingFullName, address: [order.shippingLine1, order.shippingLine2, [order.shippingCity, order.shippingPostcode].filter(Boolean).join(' ')].filter(Boolean).join(', '), carrier: shipment ? `Carrier: ${shipment.carrier}${shipment.trackingNumber ? ` · ${shipment.trackingNumber}` : ''}` : null },
+      shippingMethod: order.shippingMethod?.title ?? null,
+      lines,
+      subtotal: num(order.subtotal), discount: num(order.discountTotal), couponCode: order.couponCode, delivery: num(order.shippingCharge), vatTotal: num(order.vatTotal), total: num(order.total),
+      company: { name, legalName: process.env.STORE_LEGAL_NAME || `${name} Ltd`, address: s.companyAddress ?? '', vatNumber: s.vatNumber ?? '', email: s.supportEmail ?? '', phone: s.supportPhone1 ?? '', copyright: s.copyright || `© ${new Date().getFullYear()} ${process.env.STORE_LEGAL_NAME || `${name} Ltd`}` },
+      logo,
+    });
+    return { buffer, filename: `invoice-${order.invoice.invoiceNumber}.pdf` };
   }
 
   async detail(customerId: number, uuid: string) {

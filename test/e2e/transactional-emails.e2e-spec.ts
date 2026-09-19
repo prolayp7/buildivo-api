@@ -4,6 +4,7 @@ import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { EmailService } from '../../src/modules/email/email.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { registerAndVerify as registerCustomer } from './setup';
 
 // Resilience (checkout/status-update/refund/notification all succeeding with
 // no SMTP configured) is already proven implicitly: every other e2e spec in
@@ -131,7 +132,7 @@ describe('Transactional email triggers (e2e)', () => {
     const order = await prisma.order.findUniqueOrThrow({ where: { uuid: orderUuid }, include: { items: true } });
 
     await prisma.paymentTransaction.create({
-      data: { orderId: order.id, provider: 'STRIPE', providerTransactionId: `email_test_${orderUuid}`, amount: order.total, status: 'CAPTURED' },
+      data: { orderId: order.id, provider: 'MANUAL', providerTransactionId: `email_test_${orderUuid}`, amount: order.total, status: 'CAPTURED' },
     });
     const returnRequest = await prisma.orderItemReturn.create({
       data: { orderItemId: order.items[0].id, userId: order.userId!, reason: 'Not needed' },

@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { registerAndVerify as registerCustomer } from './setup';
 
 describe('Storefront Cart (e2e)', () => {
   let app: INestApplication;

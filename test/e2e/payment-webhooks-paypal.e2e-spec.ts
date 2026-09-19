@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { registerAndVerify as registerCustomer } from './setup';
 
 const PAYPAL_BASE = 'https://api-m.sandbox.paypal.com';
 

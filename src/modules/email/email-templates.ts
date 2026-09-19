@@ -4,6 +4,8 @@
 // count grew past "a handful of one-liners". Brand assets/palette match
 // the design system built in ukshop-store/public/emails.
 
+import { formatMoney } from '../../common/currency';
+
 export const STOREFRONT_URL = process.env.STOREFRONT_URL ?? 'http://localhost:3002';
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
@@ -21,7 +23,7 @@ const C = {
 };
 
 function money(n: number): string {
-  return `&pound;${n.toFixed(2)}`;
+  return formatMoney(n);
 }
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

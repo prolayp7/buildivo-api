@@ -46,20 +46,29 @@ describe('Storefront Auth (e2e)', () => {
     expect(res.body.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('rejects login before the account is verified', async () => {
-    await request(app.getHttpServer())
+  it('blocks login until the email is verified', async () => {
+    const res = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email, password })
-      .expect(401);
+      .expect(403);
+    expect(res.body.error.message).toMatch(/verify your email/i);
   });
 
-  it('verifies email via OTP to activate and log in, then logs in again, fetches /me, updates profile, refreshes, and logs out', async () => {
+  it('verifies email via OTP, logging the customer in automatically, then fetches /me, updates profile, refreshes, and logs out', async () => {
+    const otpRes = await request(app.getHttpServer())
+      .post('/api/v1/auth/otp/send')
+      .send({ email, purpose: 'email_verification' })
+      .expect(200);
+    const otp = otpRes.body.data.otp;
+    expect(otp).toMatch(/^\d{6}$/);
+
     const verifyRes = await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')
       .send({ email, purpose: 'email_verification', code: registrationOtp })
       .expect(200);
     expect(verifyRes.body.data.accessToken).toBeDefined();
     expect(verifyRes.body.data.refreshToken).toBeDefined();
+    expect(verifyRes.body.data.customer.email).toBe(email);
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/otp/verify')

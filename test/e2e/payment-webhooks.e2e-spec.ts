@@ -4,6 +4,7 @@ import { createHmac } from 'crypto';
 import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { registerAndVerify as registerCustomer } from './setup';
 
 function signStripePayload(secret: string, payload: string, timestamp = Math.floor(Date.now() / 1000)) {
   const signedPayload = `${timestamp}.${payload}`;
@@ -35,6 +36,16 @@ async function postStripeWebhook(app: INestApplication, payload: string, signatu
   const req = request(app.getHttpServer()).post('/api/v1/payments/webhooks/stripe').set('Content-Type', 'application/json');
   if (signatureHeader) req.set('Stripe-Signature', signatureHeader);
   return req.send(payload);
+}
+
+// Creating a Stripe attempt opens a real Checkout Session - fake just that call.
+function mockStripeCheckoutSession() {
+  return jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+    if (String(input) === 'https://api.stripe.com/v1/checkout/sessions') {
+      return new Response(JSON.stringify({ id: `cs_test_${Date.now()}`, url: 'https://checkout.stripe.com/c/pay/cs_test' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`Unexpected fetch to ${String(input)} in test`);
+  });
 }
 
 describe('Stripe webhook - not configured (e2e)', () => {
@@ -120,11 +131,13 @@ describe('Stripe webhook - configured (e2e)', () => {
       .expect(201);
     orderUuidValue = orderRes.body.data.uuid;
 
+    const stripeFetch = mockStripeCheckoutSession();
     const attemptRes = await request(app.getHttpServer())
       .post('/api/v1/payments/attempts')
       .set('Idempotency-Key', `webhook-test-${Date.now()}`)
       .send({ orderUuid: orderUuidValue, email, provider: 'STRIPE' })
       .expect(201);
+    stripeFetch.mockRestore();
 
     const attempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { uuid: attemptRes.body.data.attemptId } });
     attemptProviderObjectId = attempt.providerObjectId!;
@@ -215,11 +228,13 @@ describe('Stripe webhook - configured (e2e)', () => {
       .send({ shippingAddress: { fullName: 'Fail Case', line1: '2 Fail St', city: 'York', postcode: 'YO1 1AA' }, shippingMethodId: method!.id })
       .expect(201);
 
+    const failFetch = mockStripeCheckoutSession();
     const attemptRes = await request(app.getHttpServer())
       .post('/api/v1/payments/attempts')
       .set('Idempotency-Key', `webhook-fail-test-${Date.now()}`)
       .send({ orderUuid: orderRes.body.data.uuid, email, provider: 'STRIPE' })
       .expect(201);
+    failFetch.mockRestore();
     const attempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { uuid: attemptRes.body.data.attemptId } });
     const failProviderObjectId = attempt.providerObjectId!;
 

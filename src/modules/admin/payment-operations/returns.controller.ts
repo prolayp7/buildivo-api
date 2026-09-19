@@ -6,6 +6,8 @@ import { ApproveReturnDto } from './dto/approve-return.dto';
 import { ListReturnsQueryDto } from './dto/list-returns-query.dto';
 import { RefundReturnDto } from './dto/refund-return.dto';
 import { RejectReturnDto } from './dto/reject-return.dto';
+import { CurrentAdmin } from '../../../common/admin/current-admin.decorator';
+import { AuthenticatedAdmin } from '../../../common/admin/admin-request';
 import { PaymentOperationsService } from './payment-operations.service';
 
 @Controller('admin/returns') @UseGuards(AdminAuthGuard, PermissionsGuard)
@@ -15,5 +17,5 @@ export class ReturnsController {
   @Patch(':id/approve') @RequirePermissions('orders.refund') approve(@Param('id', ParseIntPipe) id: number, @Body() dto: ApproveReturnDto) { return this.service.approve(id, dto); }
   @Patch(':id/reject') @RequirePermissions('orders.refund') reject(@Param('id', ParseIntPipe) id: number, @Body() dto: RejectReturnDto) { return this.service.reject(id, dto); }
   @Patch(':id/receive') @RequirePermissions('orders.refund') receive(@Param('id', ParseIntPipe) id: number) { return this.service.receive(id); }
-  @Post(':id/refund') @RequirePermissions('orders.refund') refund(@Param('id', ParseIntPipe) id: number, @Body() dto: RefundReturnDto) { return this.service.refund(id, dto); }
+  @Post(':id/refund') @RequirePermissions('orders.refund') refund(@Param('id', ParseIntPipe) id: number, @Body() dto: RefundReturnDto, @CurrentAdmin() admin: AuthenticatedAdmin) { return this.service.refund(id, dto, admin.id); }
 }

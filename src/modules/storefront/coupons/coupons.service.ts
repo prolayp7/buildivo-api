@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Coupon } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { formatMoney } from '../../../common/currency';
 
 export interface CouponLine {
   lineSubtotal: number;
@@ -38,7 +39,7 @@ export class StorefrontCouponsService {
 
     const subtotal = lines.reduce((sum, l) => sum + l.lineSubtotal, 0);
     if (coupon.minOrderTotal && subtotal < Number(coupon.minOrderTotal)) {
-      throw new BadRequestException(`Coupon requires a minimum order total of £${coupon.minOrderTotal}`);
+      throw new BadRequestException(`Coupon requires a minimum order total of ${formatMoney(Number(coupon.minOrderTotal))}`);
     }
 
     if (userId && coupon.maxUsagePerUser !== null) {

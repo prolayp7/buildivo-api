@@ -802,6 +802,8 @@ model Order {
   id            Int           @id @default(autoincrement())
   uuid          String        @unique @default(uuid())
   orderNumber   String        @unique @map("order_number")
+  checkoutKey   String?       @unique @map("checkout_key")
+  invoice       Invoice?
   userId        Int?          @map("user_id")
   user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   email         String
@@ -1879,4 +1881,32 @@ model ProductAnswer {
   createdAt         DateTime        @default(now()) @map("created_at")
 
   @@map("product_answers")
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String   @unique @map("invoice_number")
+  orderId       Int      @unique @map("order_id")
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  currency      String
+  total         Decimal  @db.Decimal(10, 2)
+  issuedAt      DateTime @default(now()) @map("issued_at")
+
+  @@map("invoices")
+}
+
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  actorType     String   @map("actor_type")
+  actorId       Int?     @map("actor_id")
+  action        String
+  entity        String
+  entityId      String   @map("entity_id")
+  meta          Json?
+  correlationId String?  @map("correlation_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

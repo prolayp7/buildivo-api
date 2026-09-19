@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { paymentCurrency } from '../../../common/currency';
 
 type ShipmentRow = {
   id: number; uuid: string; order_id: number; carrier: string; idempotency_key: string; carrier_shipment_id: string | null;
@@ -37,7 +38,7 @@ export class ShipmentsService {
         ) VALUES (
           ${randomUUID()}, ${order.id}, CAST(${dto.carrier} AS "DeliveryCarrier"), ${idempotencyKey}, ${dto.serviceCode},
           ${dto.weightKg}, ${dto.lengthCm ?? null}, ${dto.widthCm ?? null}, ${dto.heightCm ?? null},
-          ${order.total}, 'GBP', ${dto.labelFormat ?? 'PDF'}, NOW()
+          ${order.total}, ${paymentCurrency()}, ${dto.labelFormat ?? 'PDF'}, NOW()
         ) ON CONFLICT (carrier, idempotency_key) DO NOTHING
         RETURNING id, uuid, order_id, carrier::text, idempotency_key, carrier_shipment_id, tracking_number, tracking_url,
           service_code, status::text, weight_kg, length_cm, width_cm, height_cm, declared_value, currency, shipping_cost,

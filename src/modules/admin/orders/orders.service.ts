@@ -16,6 +16,7 @@ const detailInclude = {
   items: { include: { product: { include: { category: { select: { id: true, title: true } } } }, productVariant: true } },
   statusHistory: { include: { changedByAdmin: { select: { id: true, name: true, email: true } } }, orderBy: { createdAt: 'asc' as const } },
   paymentTransactions: { orderBy: { createdAt: 'desc' as const } },
+  paymentRefunds: { orderBy: { createdAt: 'desc' as const } },
 };
 
 @Injectable()

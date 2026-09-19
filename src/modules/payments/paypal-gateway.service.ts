@@ -86,10 +86,41 @@ export class PaypalGatewayService {
     creds: Pick<PaypalCredentials, 'mode'>,
     accessToken: string,
     paypalOrderId: string,
-  ): Promise<{ status: string; captureId: string | null }> {
+  ): Promise<{ status: string; captureId: string | null; paid_amount?: string; paid_currency?: string }> {
     const body = await this.request(creds.mode, accessToken, `/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`, {});
-    const captures = (body.purchase_units as { payments?: { captures?: { id?: string }[] } }[] | undefined)?.[0]?.payments?.captures;
-    return { status: typeof body.status === 'string' ? body.status : 'UNKNOWN', captureId: captures?.[0]?.id ?? null };
+    const captures = (body.purchase_units as { payments?: { captures?: { id?: string; amount?: { value?: string; currency_code?: string } }[] } }[] | undefined)?.[0]?.payments?.captures;
+    return {
+      status: typeof body.status === 'string' ? body.status : 'UNKNOWN',
+      captureId: captures?.[0]?.id ?? null,
+      paid_amount: captures?.[0]?.amount?.value,
+      paid_currency: captures?.[0]?.amount?.currency_code,
+    };
+  }
+
+  /** Current state of an order - used to reconcile orders whose webhook never arrived. */
+  async getOrder(
+    creds: Pick<PaypalCredentials, 'mode'>,
+    accessToken: string,
+    paypalOrderId: string,
+  ): Promise<{ status: string; captureId: string | null; paid_amount?: string; paid_currency?: string }> {
+    const body = await this.request(creds.mode, accessToken, `/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, undefined, 'GET');
+    const captures = (body.purchase_units as { payments?: { captures?: { id?: string; amount?: { value?: string; currency_code?: string } }[] } }[] | undefined)?.[0]?.payments?.captures;
+    return { status: typeof body.status === 'string' ? body.status : 'UNKNOWN', captureId: captures?.[0]?.id ?? null, paid_amount: captures?.[0]?.amount?.value, paid_currency: captures?.[0]?.amount?.currency_code };
+  }
+
+  /** Refunds a capture. PayPal-Request-Id makes a retry safe (no double refund). */
+  async refundCapture(
+    creds: Pick<PaypalCredentials, 'mode'>,
+    accessToken: string,
+    captureId: string,
+    input: { amount: string; currency: string; idempotencyKey: string },
+  ): Promise<{ id: string; status: string }> {
+    const body = await this.request(
+      creds.mode, accessToken, `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`,
+      { amount: { value: input.amount, currency_code: input.currency } }, 'POST', { 'PayPal-Request-Id': input.idempotencyKey },
+    );
+    if (typeof body.id !== 'string') throw new BadGatewayException('PayPal did not return a refund');
+    return { id: body.id, status: String(body.status) };
   }
 
   async verifyWebhookSignature(
@@ -117,13 +148,13 @@ export class PaypalGatewayService {
     return body.verification_status === 'SUCCESS';
   }
 
-  private async request(mode: 'SANDBOX' | 'LIVE', accessToken: string, path: string, body: unknown): Promise<Record<string, unknown>> {
+  private async request(mode: 'SANDBOX' | 'LIVE', accessToken: string, path: string, body?: unknown, method: 'GET' | 'POST' = 'POST', extraHeaders: Record<string, string> = {}): Promise<Record<string, unknown>> {
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl(mode)}${path}`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        method,
+        headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json', ...extraHeaders },
+        body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {

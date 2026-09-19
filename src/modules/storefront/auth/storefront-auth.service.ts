@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -105,6 +105,8 @@ export class StorefrontAuthService {
           firstName: dto.firstName.trim(),
           lastName: dto.lastName.trim(),
           phone: dto.phone,
+          // Suspended until verified - by the emailed code (verifyOtp() flips this to ACTIVE) or by an admin.
+          status: 'SUSPENDED',
         },
       })
       .catch((error) => {
@@ -131,10 +133,9 @@ export class StorefrontAuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Your account has been suspended. Contact support for help.');
-    }
-    if (!user.emailVerifiedAt) {
-      throw new UnauthorizedException('Please verify your email before signing in. Check your inbox for the code we sent you.');
+      throw new ForbiddenException(
+        user.emailVerifiedAt ? 'Your account has been suspended. Contact support for help.' : 'Please verify your email before signing in',
+      );
     }
 
     const tokens = await this.issueTokenPair(user.id);
@@ -187,23 +188,31 @@ export class StorefrontAuthService {
     return otp;
   }
 
-  // Verifying an email_verification code also activates and logs the customer
-  // in, since it's the confirmation step registration is waiting on. Other
-  // purposes (password_reset) just confirm the code, no session is implied.
-  async verifyOtp(email: string, purpose: OtpPurpose, code: string): Promise<{ verified: true } & Partial<TokenPair & { customer: AuthenticatedCustomer }>> {
+  async verifyOtp(
+    email: string,
+    purpose: OtpPurpose,
+    code: string,
+  ): Promise<{ verified: true } & Partial<TokenPair & { customer: AuthenticatedCustomer }>> {
     await this.consumeOtp(email, purpose, code);
-    if (purpose !== 'email_verification') return { verified: true };
-
-    const normalizedEmail = email.trim().toLowerCase();
-    await this.prisma.user.updateMany({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' }, deletedAt: null },
-      data: { emailVerifiedAt: new Date() },
-    });
-    const user = await this.prisma.user.findFirst({ where: { email: { equals: normalizedEmail, mode: 'insensitive' }, deletedAt: null } });
-    if (!user) return { verified: true };
-
-    const tokens = await this.issueTokenPair(user.id);
-    return { verified: true, ...tokens, customer: toAuthenticatedCustomer(user) };
+    if (purpose === 'email_verification') {
+      // emailVerifiedAt: null in the filter means this only activates a
+      // still-pending signup - it won't reactivate an account an admin has
+      // since suspended for cause.
+      await this.prisma.user.updateMany({
+        where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' }, deletedAt: null, emailVerifiedAt: null },
+        data: { emailVerifiedAt: new Date(), status: 'ACTIVE' },
+      });
+      const user = await this.prisma.user.findFirst({
+        where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' }, deletedAt: null },
+      });
+      // Only a genuinely active account gets a session - a suspended one (e.g.
+      // an admin suspension) must not be able to log in via this route.
+      if (user && user.status === 'ACTIVE') {
+        const tokens = await this.issueTokenPair(user.id);
+        return { verified: true, ...tokens, customer: toAuthenticatedCustomer(user) };
+      }
+    }
+    return { verified: true };
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {
