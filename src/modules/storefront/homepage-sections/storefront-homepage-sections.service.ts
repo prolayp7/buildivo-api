@@ -9,7 +9,7 @@ export class StorefrontHomepageSectionsService {
     return this.prisma.homepageSection.findMany({
       where: { isVisible: true },
       orderBy: { sortOrder: 'asc' },
-      select: { type: true },
+      select: { type: true, config: true },
     });
   }
 }

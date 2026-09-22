@@ -308,18 +308,75 @@ async function main() {
 
   // Homepage section ordering/visibility - one row per section that actually
   // renders on the storefront homepage (src/app/(storefront)/page.tsx),
-  // in that page's real order. isVisible is the only thing an admin can
-  // change here that the storefront actually respects.
+  // in that page's real order. isVisible and, for TRADE_CTA, config are what
+  // an admin can change here that the storefront actually respects.
   const findOrCreateHomepageSection = (type: Parameters<typeof prisma.homepageSection.create>[0]['data']['type'], data: Omit<Parameters<typeof prisma.homepageSection.create>[0]['data'], 'type'>) =>
     prisma.homepageSection.findFirst({ where: { type } }).then((existing) => existing ?? prisma.homepageSection.create({ data: { type, ...data } }));
   await findOrCreateHomepageSection('HERO', { label: 'Hero carousel', sortOrder: 0 });
   await findOrCreateHomepageSection('TRUST_STRIP', { label: 'Trust strip', sortOrder: 1 });
   await findOrCreateHomepageSection('DEPARTMENTS', { label: 'Shop by Department', sortOrder: 2 });
   await findOrCreateHomepageSection('FEATURED_PRODUCTS', { label: 'Featured Pro Tools', sortOrder: 3 });
-  await findOrCreateHomepageSection('PROJECT_KITS', { label: 'Shop by Complete Job', sortOrder: 4 });
-  await findOrCreateHomepageSection('TRADE_CTA', { label: 'Unlock Net Pricing & 30-Day Credit Lines', sortOrder: 5 });
-  await findOrCreateHomepageSection('CALCULATORS', { label: 'Interactive Material Calculators', sortOrder: 6 });
-  await findOrCreateHomepageSection('ECOSYSTEM_MATCHER', { label: 'Ecosystem Matcher', sortOrder: 7 });
+  // Mirrors the literal copy/kit data that used to be hardcoded in the
+  // storefront's PROJECT_KITS JSX block - now the single source of truth,
+  // admin-editable. Image, slug and categorySlug stay hardcoded in the
+  // storefront component (they're structural, tied to real asset paths).
+  const projectKitsConfig = {
+    badgeLabel: 'Turnkey Project Packs',
+    heading: 'Shop by Complete Job',
+    description: 'Standardized bills of materials curated with vetted tradespeople. Eliminate missed fixings, incorrect gauge wiring, and return trips.',
+    footnote: 'All bundles include 5% bulk rebate',
+    kit1Name: 'Decking & Outdoor Framing', kit1Description: 'C24 treated joists, deck boards, weed membrane, joist tape & coach screws.', kit1SpecLabel: 'Estimated Area', kit1SpecValue: '25 - 35 m²', kit1Est: '£1,420.00', kit1ItemCount: '24',
+    kit2Name: 'Complete Bathroom Refit', kit2Description: 'Tanking kit, 15mm/22mm copper, JG Speedfit manifolds, tile backer boards.', kit2SpecLabel: 'Typical Room Size', kit2SpecValue: 'Standard 3-piece', kit2Est: '£2,180.00', kit2ItemCount: '48',
+    kit3Name: 'Jobsite Electrical Rough-In', kit3Description: '100m drums 2.5mm² T&E, 1.5mm² lighting, dry lining boxes, RCBOs.', kit3SpecLabel: 'Scope', kit3SpecValue: '4-Zone Extension', kit3Est: '£895.00', kit3ItemCount: '32',
+    kit4Name: 'Workshop Storage Build', kit4Description: 'Birch plywood sheets, heavy duty steel angle brackets, heavy-duty castors.', kit4SpecLabel: 'Bench Spec', kit4SpecValue: '2.4m Heavy Workbench', kit4Est: '£640.00', kit4ItemCount: '18',
+  };
+  const projectKitsSection = await findOrCreateHomepageSection('PROJECT_KITS', { label: 'Shop by Complete Job', sortOrder: 4, config: projectKitsConfig });
+  if (!projectKitsSection.config || Object.keys(projectKitsSection.config as object).length === 0) {
+    await prisma.homepageSection.update({ where: { id: projectKitsSection.id }, data: { config: projectKitsConfig } });
+  }
+  // Mirrors the literal copy that used to be hardcoded in the storefront's
+  // TRADE_CTA JSX block - now the single source of truth, admin-editable.
+  const tradeCtaConfig = {
+    badgeLabel: 'Official Trade Contractor Scheme',
+    heading: 'Unlock Net Pricing & 30-Day Credit Lines',
+    description: 'Power your jobs with instant approvals, volume tiered rates on daily consumables, and guaranteed delivery direct to active jobsites before 9:00 AM.',
+    stat1Value: 'Up to 15%', stat1Label: 'Trade Discount', stat1Caption: 'Tiered rebates applied to invoicing',
+    stat2Icon: 'support_agent', stat2Label: 'Dedicated Manager', stat2Caption: 'Direct phone desk for instant tender quotes',
+    stat3Icon: 'location_on', stat3Label: 'Instant Jobsite Drops', stat3Caption: 'What3words geofenced drop-offs',
+    ctaLabel: 'Apply for Trade Account', ctaHref: '/trade',
+    microcopy: 'Instant 2-minute soft-check application (Companies House verified)',
+    previewBrand: 'BUILDIVO PRO', previewStatus: 'Active', previewHolderName: 'Apex Mechanical & Electrical Ltd',
+    previewCreditLimit: '£25,000.00', previewTerms: 'Net 30 Days', previewCardMask: '•••• 9842', previewExpiry: '12/28',
+  };
+  const tradeCtaSection = await findOrCreateHomepageSection('TRADE_CTA', { label: 'Unlock Net Pricing & 30-Day Credit Lines', sortOrder: 5, config: tradeCtaConfig });
+  if (!tradeCtaSection.config || Object.keys(tradeCtaSection.config as object).length === 0) {
+    await prisma.homepageSection.update({ where: { id: tradeCtaSection.id }, data: { config: tradeCtaConfig } });
+  }
+  const calculatorsConfig = {
+    eyebrow: 'Jobsite Estimation Suite',
+    heading: 'Interactive Material Calculators',
+    description: 'Prevent site waste and calculate exact quantities for tile, paint coverage, concrete pours, and laminate flooring with automatic 10% wastage allowance.',
+    calc1Icon: 'architecture', calc1Label: 'Concrete & Mortar Volume', calc1Caption: 'Calculates cubic meters, ballast & cement bags for footings and slabs.',
+    calc2Icon: 'format_paint', calc2Label: 'Paint Coverage & Primer', calc2Caption: 'Coat multipliers for masonry, emulsion, gloss, and exterior cladding.',
+    calc3Icon: 'view_agenda', calc3Label: 'Flooring & Underlay Packs', calc3Caption: 'Pack box rounding with expansion gap perimeter formulas.',
+  };
+  const calculatorsSection = await findOrCreateHomepageSection('CALCULATORS', { label: 'Interactive Material Calculators', sortOrder: 6, config: calculatorsConfig });
+  if (!calculatorsSection.config || Object.keys(calculatorsSection.config as object).length === 0) {
+    await prisma.homepageSection.update({ where: { id: calculatorsSection.id }, data: { config: calculatorsConfig } });
+  }
+  const ecosystemMatcherConfig = {
+    badgeLabel: 'Ecosystem Matcher',
+    heading: 'Match Your Battery Platform & Bare Tools',
+    description: 'Never buy the wrong voltage or redundant chargers. Select your existing battery system to instantly filter thousands of 100% compatible naked tools.',
+    previewHeading: 'Already own the battery?',
+    previewDescription: 'Build your next kit around it. Explore bare tools without another battery or charger.',
+    previewCtaLabel: 'Explore bare tools',
+    previewCaption: "Check each tool's platform before you buy.",
+  };
+  const ecosystemMatcherSection = await findOrCreateHomepageSection('ECOSYSTEM_MATCHER', { label: 'Ecosystem Matcher', sortOrder: 7, config: ecosystemMatcherConfig });
+  if (!ecosystemMatcherSection.config || Object.keys(ecosystemMatcherSection.config as object).length === 0) {
+    await prisma.homepageSection.update({ where: { id: ecosystemMatcherSection.id }, data: { config: ecosystemMatcherConfig } });
+  }
 
   // Blog & static CMS pages - demo content for the storefront's content pages.
   const blogCategory = await prisma.blogCategory.upsert({
