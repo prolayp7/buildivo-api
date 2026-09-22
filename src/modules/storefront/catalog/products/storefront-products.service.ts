@@ -152,6 +152,8 @@ export class StorefrontProductsService {
   private async fuzzyProductIds(q: string): Promise<number[]> {
     const term = q.trim();
     if (term.length < 3) return [];
+    // pg_trgm is optional: if the extension isn't installed on the DB server,
+    // fall back to strict matching only instead of failing the whole search.
     const rows = await this.prisma.$queryRaw<{ id: number }[]>`
       SELECT p.id
       FROM products p
@@ -170,7 +172,7 @@ export class StorefrontProductsService {
         similarity(coalesce(c.title, ''), ${term})
       ) DESC
       LIMIT 50
-    `;
+    `.catch(() => [] as { id: number }[]);
     return rows.map((row) => row.id);
   }
 

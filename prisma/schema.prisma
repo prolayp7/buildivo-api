@@ -32,6 +32,8 @@ model Media {
   ownerId    Int            @map("owner_id")
   collection String
   url        String
+  originalUrl   String?     @map("original_url")
+  thumbnailUrl  String?     @map("thumbnail_url")
   altText    String?        @map("alt_text")
   sortOrder  Int            @default(0) @map("sort_order")
   metadata   Json?

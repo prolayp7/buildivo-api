@@ -8,6 +8,19 @@ export const mediaUploadDirectory = resolve(
   process.env.MEDIA_UPLOAD_DIR ?? resolve(process.cwd(), 'uploads'),
 );
 
+// Persistent storage buckets under mediaUploadDirectory, kept outside the
+// project root (via MEDIA_UPLOAD_DIR) so deploys/rollbacks never touch them.
+export const mediaBuckets = {
+  productOriginals: 'products/originals',
+  productThumbnails: 'products/thumbnails',
+  productOptimized: 'products/optimized',
+  categories: 'categories',
+  brands: 'brands',
+  logos: 'logos',
+  misc: 'misc',
+  temporary: 'temporary',
+} as const;
+
 const DEFAULT_STOREFRONT_ORIGINS = ['http://localhost:3000', 'http://localhost:3001'];
 
 function storefrontOrigins(): string[] {
@@ -16,7 +29,7 @@ function storefrontOrigins(): string[] {
 }
 
 export function configureApp(app: INestApplication): void {
-  mkdirSync(mediaUploadDirectory, { recursive: true });
+  for (const bucket of Object.values(mediaBuckets)) mkdirSync(resolve(mediaUploadDirectory, bucket), { recursive: true });
   const staticApp = app as INestApplication & {
     useStaticAssets?: (path: string, options?: { prefix?: string }) => void;
   };
