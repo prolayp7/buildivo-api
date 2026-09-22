@@ -112,7 +112,7 @@ describe('Marketing & Merchandising', () => {
     featuredSectionId = featuredSection.id;
     expect(featuredSection.manualProducts).toHaveLength(1);
 
-    const heroSlide = await prisma.heroSlide.create({ data: { headline: 'Test Headline' } });
+    const heroSlide = await prisma.heroSlide.create({ data: { heading: 'Test Heading' } });
     heroSlideId = heroSlide.id;
     const heroBadge = await prisma.heroTrustBadge.create({ data: { label: 'Free UK Delivery' } });
     heroBadgeId = heroBadge.id;

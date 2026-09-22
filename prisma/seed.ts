@@ -248,36 +248,39 @@ async function main() {
     }
   }
 
-  // Homepage merchandising - demo content so the storefront home page has
-  // something real to render (Day 6 will replace this with production content
-  // entered through the admin panel).
-  //
-  // Hero slides were extended with eyebrow/image/tone/secondary CTA fields
-  // and Hero.tsx switched from a hardcoded SLIDES array to reading these
-  // live - reseed with content matching that hardcoded array exactly (only
-  // if still at the old 3-slide placeholder state) so the storefront looks
-  // identical until an admin actually edits a slide.
-  const oldPlaceholderSlide = await prisma.heroSlide.findFirst({ where: { headline: 'Deals now live' } });
+  // Homepage hero - real buildivo content (the combi drill slide links to
+  // its actual product row so the overlay card's title/price/spec resolve
+  // live; the other two link to real categories). Reseed only while empty
+  // or still holding the leftover generic PC-shop template rows this schema
+  // was forked with.
+  const genericPlaceholderSlide = await prisma.heroSlide.findFirst({ where: { heading: 'Radeon RX 9070 XT graphics, ready to perform' } });
   const heroSlideCount = await prisma.heroSlide.count();
-  if (heroSlideCount === 0 || oldPlaceholderSlide) {
-    if (oldPlaceholderSlide) await prisma.heroSlide.deleteMany({});
+  if (heroSlideCount === 0 || genericPlaceholderSlide) {
+    if (genericPlaceholderSlide) await prisma.heroSlide.deleteMany({});
+    const combiDrill = await prisma.product.findFirst({ where: { slug: 'dewalt-dcd996p2-18v-xr-brushless-combi-drill' }, select: { id: true } });
+    const powerTools = await prisma.category.findFirst({ where: { slug: 'power-tools' }, select: { id: true } });
+    const hardwareFixings = await prisma.category.findFirst({ where: { slug: 'hardware-fixings' }, select: { id: true } });
     await prisma.heroSlide.createMany({
       data: [
-        { eyebrow: 'New generation graphics', headline: 'Radeon RX 9070 XT graphics, ready to perform', subheading: 'Explore high-performance graphics cards for smooth gaming, creative work and demanding everyday builds.', image: '/images/products/Sapphire Pulse RX 9070 XT Display.webp', imagePosition: '68% center', tone: 'VIOLET', ctaLabel: 'Shop graphics cards', ctaUrl: '/category?sub=Graphics%20Cards', secondaryCtaLabel: 'Compare components', secondaryCtaUrl: '/category?cat=PC%20Components', sortOrder: 1 },
-        { eyebrow: 'Portable performance', headline: 'Gaming laptops built for the next challenge', subheading: 'Find fast displays, powerful mobile graphics and capable processors in one streamlined setup.', image: '/images/products/ASUS ROG Zephyrus G16 Gaming Setup.webp', imagePosition: '64% center', tone: 'ELECTRIC', ctaLabel: 'Shop gaming laptops', ctaUrl: '/category?sub=Gaming%20Laptops', secondaryCtaLabel: 'Browse all laptops', secondaryCtaUrl: '/category?cat=Laptops', sortOrder: 2 },
-        { eyebrow: 'Build it your way', headline: 'Airflow-focused cases for cleaner PC builds', subheading: 'Start your next system with modern layouts, considered cooling and space for the components that matter.', image: '/images/products/NZXT H5 Flow RGB Showcase.webp', imagePosition: '72% center', tone: 'CYAN', ctaLabel: 'Shop PC cases', ctaUrl: '/category?sub=Cases', secondaryCtaLabel: 'Explore components', secondaryCtaUrl: '/category?cat=PC%20Components', sortOrder: 3 },
-        { eyebrow: 'Work from anywhere', headline: 'Business laptops with everyday staying power', subheading: 'Discover dependable, travel-ready machines designed for focused work at the office, at home or on the move.', image: '/images/products/ThinkPad X1 Carbon Aura Edition Showcase.webp', imagePosition: '68% center', tone: 'CRIMSON', ctaLabel: 'Shop business laptops', ctaUrl: '/category?sub=Business%20Laptops', secondaryCtaLabel: 'View all laptops', secondaryCtaUrl: '/category?cat=Laptops', sortOrder: 4 },
+        { eyebrow: 'Cordless Power for the Jobsite', heading: 'Built for the', highlight: 'Demands', ending: 'of Real Work.', description: 'Drill and drive with cordless brushless power. Explore combi drills and jobsite essentials for your next project.', ctaLabel: 'Shop Power Tools', overlayBadge: 'Job Site Spotlight', image: 'https://images.pexels.com/photos/1249609/pexels-photo-1249609.jpeg?auto=compress&cs=tinysrgb&w=3840', imageAlt: 'Close-up of a tradesperson driving a screw into wood with a cordless drill', imagePosition: '40% 35%', linkType: 'PRODUCT', productId: combiDrill?.id, sortOrder: 1 },
+        { eyebrow: 'Cutting & Grinding Essentials', heading: 'Take on Metal with', highlight: 'Confidence', ending: 'in Every Cut.', description: 'From cutting metal to preparing surfaces, find cordless angle grinders and accessories for the work ahead.', ctaLabel: 'Shop Power Tools', overlayBadge: 'Trade Favourite', specification: '12,000 RPM · Kickback Brake', image: 'https://images.pexels.com/photos/15628889/pexels-photo-15628889.jpeg?auto=compress&cs=tinysrgb&w=3840', imageAlt: 'Angle grinder cutting metal with bright orange sparks', imagePosition: '50% 35%', linkType: 'CATEGORY', categoryId: powerTools?.id, sortOrder: 2 },
+        { eyebrow: 'Hardware & Trade Fixings', heading: 'The Right', highlight: 'Fixings', ending: 'for Every Build.', description: 'Keep your next build moving with timber screws, fasteners and bulk trade packs, ready for the workshop or jobsite.', ctaLabel: 'Shop Fixings', overlayBadge: 'Bulk Trade Pack', specification: '1,200 Piece · Zinc Yellow', image: 'https://images.pexels.com/photos/8447852/pexels-photo-8447852.jpeg?auto=compress&cs=tinysrgb&w=3840', imageAlt: 'Metal screws, nuts and fasteners arranged in a workshop organizer', imagePosition: '65% 35%', linkType: 'CATEGORY', categoryId: hardwareFixings?.id, sortOrder: 3 },
       ],
     });
   }
+  // Generic placeholder from the PC-shop template this was forked from -
+  // icon values didn't match the Material Symbols font the storefront uses.
+  const genericPlaceholderBadge = await prisma.heroTrustBadge.findFirst({ where: { icon: 'i-truck' } });
   const heroBadgeCount = await prisma.heroTrustBadge.count();
-  if (heroBadgeCount === 0) {
+  if (heroBadgeCount === 0 || genericPlaceholderBadge) {
+    if (genericPlaceholderBadge) await prisma.heroTrustBadge.deleteMany({});
     await prisma.heroTrustBadge.createMany({
       data: [
-        { label: 'Free UK next-day delivery', icon: 'i-truck', sortOrder: 1 },
-        { label: '30-day returns', icon: 'i-shield', sortOrder: 2 },
-        { label: '0% finance available', icon: 'i-card', sortOrder: 3 },
-        { label: 'Manchester showroom', icon: 'i-wrench', sortOrder: 4 },
+        { label: 'Next-Day Jobsite Dispatch', caption: 'Orders before 8 PM ship tonight', icon: 'local_shipping', placement: 'TRUST_STRIP', sortOrder: 1 },
+        { label: '30-Day Free Returns', caption: 'Zero hassle on unopened stock', icon: 'cached', placement: 'TRUST_STRIP', sortOrder: 2 },
+        { label: 'Price Match Promise', caption: 'We beat authorized trade quotes', icon: 'price_check', placement: 'TRUST_STRIP', sortOrder: 3 },
+        { label: '3-Year Manufacturer Warranty', caption: 'Registered straight at checkout', icon: 'verified_user', placement: 'TRUST_STRIP', sortOrder: 4 },
+        { label: 'Sub-2hr Click & Collect', caption: 'Available across 240 branches', icon: 'bolt', placement: 'HERO_FLOATING', sortOrder: 1 },
       ],
     });
   }

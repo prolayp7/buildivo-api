@@ -295,6 +295,7 @@ model Category {
   megaMenuLinks     MegaMenuLink[]
   featuredSections  FeaturedSection[]
   banners           Banner[]
+  heroSlides        HeroSlide[]
   faqs              CategoryFaq[]
 
   @@index([parentId])
@@ -477,6 +478,7 @@ model Product {
   orderItems             OrderItem[]
   reviews                Review[]
   banners                Banner[]
+  heroSlides             HeroSlide[]
   featuredSectionEntries FeaturedSectionProduct[]
   trendingEntries        TrendingProduct[]
   shippingMethods        ProductShippingMethod[]
@@ -1358,39 +1360,49 @@ model FeaturedSectionProduct {
   @@map("featured_section_products")
 }
 
-enum HeroSlideTone {
-  VIOLET
-  ELECTRIC
-  CYAN
-  CRIMSON
-}
-
 model HeroSlide {
-  id                Int           @id @default(autoincrement())
-  eyebrow           String?
-  headline          String
-  subheading        String?
-  image             String?
-  imagePosition     String?       @default("center") @map("image_position")
-  tone              HeroSlideTone @default(VIOLET)
-  ctaLabel          String?       @map("cta_label")
-  ctaUrl            String?       @map("cta_url")
-  secondaryCtaLabel String?       @map("secondary_cta_label")
-  secondaryCtaUrl   String?       @map("secondary_cta_url")
-  sortOrder         Int           @default(0) @map("sort_order")
-  status            CatalogStatus @default(ACTIVE)
-  startsAt          DateTime?     @map("starts_at")
-  endsAt            DateTime?     @map("ends_at")
+  id            Int            @id @default(autoincrement())
+  eyebrow       String?
+  heading       String
+  highlight     String?
+  ending        String?
+  description   String?
+  overlayBadge  String?        @map("overlay_badge")
+  specification String?
+  image         String?
+  imageAlt      String?        @map("image_alt")
+  imageFit      String?        @default("cover") @map("image_fit")
+  imagePosition String?        @default("center") @map("image_position")
+  ctaLabel      String?        @map("cta_label")
+  linkType      BannerLinkType @default(CUSTOM_URL) @map("link_type")
+  productId     Int?           @map("product_id")
+  product       Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  categoryId    Int?           @map("category_id")
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  customUrl     String?        @map("custom_url")
+  sortOrder     Int            @default(0) @map("sort_order")
+  status        CatalogStatus  @default(ACTIVE)
+  startsAt      DateTime?      @map("starts_at")
+  endsAt        DateTime?      @map("ends_at")
 
+  @@index([productId])
+  @@index([categoryId])
   @@map("hero_slides")
 }
 
+enum HeroTrustBadgePlacement {
+  TRUST_STRIP
+  HERO_FLOATING
+}
+
 model HeroTrustBadge {
-  id        Int           @id @default(autoincrement())
+  id        Int                     @id @default(autoincrement())
   label     String
+  caption   String?
   icon      String?
-  sortOrder Int           @default(0) @map("sort_order")
-  status    CatalogStatus @default(ACTIVE)
+  placement HeroTrustBadgePlacement @default(TRUST_STRIP)
+  sortOrder Int                     @default(0) @map("sort_order")
+  status    CatalogStatus           @default(ACTIVE)
 
   @@map("hero_trust_badges")
 }

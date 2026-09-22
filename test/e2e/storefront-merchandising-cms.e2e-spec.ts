@@ -20,16 +20,16 @@ describe('Storefront Merchandising & CMS (e2e)', () => {
 
   describe('GET /home', () => {
     it('returns only active, in-window hero slides and badges', async () => {
-      const activeSlide = await prisma.heroSlide.create({ data: { headline: `Active ${Date.now()}`, sortOrder: 0 } });
-      const inactiveSlide = await prisma.heroSlide.create({ data: { headline: `Inactive ${Date.now()}`, status: 'INACTIVE' } });
-      const futureSlide = await prisma.heroSlide.create({ data: { headline: `Future ${Date.now()}`, startsAt: new Date(Date.now() + 86_400_000) } });
+      const activeSlide = await prisma.heroSlide.create({ data: { heading: `Active ${Date.now()}`, sortOrder: 0 } });
+      const inactiveSlide = await prisma.heroSlide.create({ data: { heading: `Inactive ${Date.now()}`, status: 'INACTIVE' } });
+      const futureSlide = await prisma.heroSlide.create({ data: { heading: `Future ${Date.now()}`, startsAt: new Date(Date.now() + 86_400_000) } });
       const badge = await prisma.heroTrustBadge.create({ data: { label: `Badge ${Date.now()}` } });
 
       const res = await request(app.getHttpServer()).get('/api/v1/home').expect(200);
-      const headlines = res.body.data.hero.slides.map((s: { headline: string }) => s.headline);
-      expect(headlines).toContain(activeSlide.headline);
-      expect(headlines).not.toContain(inactiveSlide.headline);
-      expect(headlines).not.toContain(futureSlide.headline);
+      const headings = res.body.data.hero.slides.map((s: { heading: string }) => s.heading);
+      expect(headings).toContain(activeSlide.heading);
+      expect(headings).not.toContain(inactiveSlide.heading);
+      expect(headings).not.toContain(futureSlide.heading);
       expect(res.body.data.hero.badges.some((b: { id: number }) => b.id === badge.id)).toBe(true);
     });
 

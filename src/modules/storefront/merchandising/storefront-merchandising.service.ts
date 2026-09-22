@@ -21,6 +21,43 @@ export class StorefrontMerchandisingService {
     private readonly productsService: StorefrontProductsService,
   ) {}
 
+  // A linked product's title/price/reference/spec are read live here rather
+  // than duplicated onto the slide row, so they can never go stale.
+  private resolveHeroSlide(slide: {
+    id: number; eyebrow: string | null; heading: string; highlight: string | null; ending: string | null; description: string | null;
+    overlayBadge: string | null; specification: string | null; image: string | null; imageAlt: string | null; imageFit: string | null;
+    imagePosition: string | null; ctaLabel: string | null; linkType: string; customUrl: string | null;
+    product: { slug: string; title: string; sku: string | null; specsSummary: unknown; variants: { price: unknown; salePrice: unknown }[] } | null;
+    category: { slug: string } | null;
+  }) {
+    const variant = slide.product?.variants[0];
+    const price = variant ? Number(variant.salePrice ?? variant.price) : null;
+    const specsSummary = slide.product?.specsSummary as Record<string, string> | null;
+    const derivedSpecification = specsSummary ? Object.values(specsSummary).slice(0, 2).join(' · ') : null;
+    const href = slide.linkType === 'PRODUCT' && slide.product ? `/p/${slide.product.slug}`
+      : slide.linkType === 'CATEGORY' && slide.category ? `/c/${slide.category.slug}`
+      : slide.customUrl ?? null;
+    return {
+      id: slide.id,
+      eyebrow: slide.eyebrow,
+      heading: slide.heading,
+      highlight: slide.highlight,
+      ending: slide.ending,
+      description: slide.description,
+      overlayBadge: slide.overlayBadge,
+      image: slide.image,
+      imageAlt: slide.imageAlt,
+      imageFit: slide.imageFit,
+      imagePosition: slide.imagePosition,
+      ctaLabel: slide.ctaLabel,
+      href,
+      title: slide.product?.title ?? null,
+      reference: slide.product?.sku ?? null,
+      specification: slide.specification ?? derivedSpecification,
+      price,
+    };
+  }
+
   private async resolveSectionProducts(section: { sectionType: string; categoryId: number | null; manualProducts: { productId: number }[] }) {
     switch (section.sectionType) {
       case 'MANUAL':
@@ -42,6 +79,10 @@ export class StorefrontMerchandisingService {
       this.prisma.homepageSection.findMany({ where: { isVisible: true }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.heroSlide.findMany({
         where: activeAndInWindow(),
+        include: {
+          product: { select: { slug: true, title: true, sku: true, specsSummary: true, variants: { where: { deletedAt: null }, orderBy: [{ isDefault: 'desc' }, { id: 'asc' }], take: 1, select: { price: true, salePrice: true } } } },
+          category: { select: { slug: true } },
+        },
         orderBy: { sortOrder: 'asc' },
       }),
       this.prisma.heroTrustBadge.findMany({ where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' } }),
@@ -69,7 +110,11 @@ export class StorefrontMerchandisingService {
 
     return {
       homepageSections: homepageSections.map((section) => ({ id: section.id, type: section.type, config: section.config })),
-      hero: { slides: heroSlides, badges: heroBadges },
+      hero: {
+        slides: heroSlides.map((slide) => this.resolveHeroSlide(slide)),
+        badges: heroBadges.filter((badge) => badge.placement === 'TRUST_STRIP'),
+        floatingBadge: heroBadges.find((badge) => badge.placement === 'HERO_FLOATING') ?? null,
+      },
       banners,
       featuredSections: sections,
     };

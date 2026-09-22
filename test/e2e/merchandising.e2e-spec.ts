@@ -8,7 +8,7 @@ describe('Admin Merchandising (e2e)', () => {
     const updated = await request(app.getHttpServer()).patch(`/api/v1/admin/banners/${bannerId}`).set('Authorization', `Bearer ${token}`).send({ customUrl: '/clearance' }).expect(200); expect(updated.body.data.customUrl).toBe('/clearance');
   });
   it('creates a scheduled hero slide and trust badge', async () => {
-    const slide = await request(app.getHttpServer()).post('/api/v1/admin/hero-slides').set('Authorization', `Bearer ${token}`).send({ headline: 'Test Hero', sortOrder: 99 }).expect(201); slideId = slide.body.data.id;
+    const slide = await request(app.getHttpServer()).post('/api/v1/admin/hero-slides').set('Authorization', `Bearer ${token}`).send({ heading: 'Test Hero', linkType: 'CUSTOM_URL', customUrl: '/test-hero', sortOrder: 99 }).expect(201); slideId = slide.body.data.id;
     const badge = await request(app.getHttpServer()).post('/api/v1/admin/hero-trust-badges').set('Authorization', `Bearer ${token}`).send({ label: 'Test Guarantee', sortOrder: 99 }).expect(201); badgeId = badge.body.data.id;
   });
 });
