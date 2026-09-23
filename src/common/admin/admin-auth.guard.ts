@@ -44,6 +44,7 @@ export class AdminAuthGuard implements CanActivate {
       email: adminUser.email,
       name: adminUser.name,
       roleId: adminUser.roleId,
+      roleName: adminUser.role.name,
       permissionKeys: adminUser.role.permissions.map((rp) => rp.permission.key),
     };
 

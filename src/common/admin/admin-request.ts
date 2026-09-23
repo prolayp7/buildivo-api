@@ -5,6 +5,7 @@ export interface AuthenticatedAdmin {
   email: string;
   name: string;
   roleId: number;
+  roleName: string;
   permissionKeys: string[];
 }
 

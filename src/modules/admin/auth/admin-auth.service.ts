@@ -66,6 +66,7 @@ export class AdminAuthService {
         email: adminUser.email,
         name: adminUser.name,
         roleId: adminUser.roleId,
+        roleName: adminUser.role.name,
         permissionKeys: adminUser.role.permissions.map((rp) => rp.permission.key),
       },
     };
@@ -120,6 +121,7 @@ export class AdminAuthService {
       email: adminUser.email,
       name: adminUser.name,
       roleId: adminUser.roleId,
+      roleName: adminUser.role.name,
       permissionKeys: adminUser.role.permissions.map((rp) => rp.permission.key),
     };
   }
