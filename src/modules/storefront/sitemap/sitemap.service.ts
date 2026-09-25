@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-const STOREFRONT_URL = process.env.STOREFRONT_URL ?? 'http://localhost:3002';
+// Public address of the storefront (buildivo); must match its NEXT_PUBLIC_SITE_URL.
+const STOREFRONT_URL = (process.env.STOREFRONT_URL ?? 'http://localhost:3002').replace(/\/$/, '');
 
 function escapeXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -25,10 +26,11 @@ export class SitemapService {
     ]);
     const urls: SitemapUrl[] = [
       { loc: `${STOREFRONT_URL}/` },
-      ...products.map((p) => ({ loc: `${STOREFRONT_URL}/products/${p.slug}`, lastmod: p.updatedAt })),
-      ...categories.map((c) => ({ loc: `${STOREFRONT_URL}/category/${c.slug}`, lastmod: c.updatedAt })),
-      ...posts.map((p) => ({ loc: `${STOREFRONT_URL}/blog/${p.slug}`, lastmod: p.updatedAt })),
-      ...pages.map((p) => ({ loc: `${STOREFRONT_URL}/${p.slug}`, lastmod: p.updatedAt })),
+      { loc: `${STOREFRONT_URL}/blog` },
+      ...products.map((p) => ({ loc: `${STOREFRONT_URL}/p/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
+      ...categories.map((c) => ({ loc: `${STOREFRONT_URL}/c/${encodeURIComponent(c.slug)}`, lastmod: c.updatedAt })),
+      ...posts.map((p) => ({ loc: `${STOREFRONT_URL}/blog/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
+      ...pages.map((p) => ({ loc: `${STOREFRONT_URL}/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
     ];
     const body = urls
       .map((u) => `  <url><loc>${escapeXml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod.toISOString()}</lastmod>` : ''}</url>`)

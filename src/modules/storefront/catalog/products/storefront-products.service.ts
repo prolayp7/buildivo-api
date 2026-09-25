@@ -1,3 +1,4 @@
+import { CapabilitiesService } from '../../../capabilities/capabilities.service';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductCompatibility } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -17,7 +18,7 @@ function memoryTypeForSocket(socket: string): string | null {
 
 // Words that carry no search meaning on their own ("laptop with graphics card"
 // should search for laptop/graphics/card, not treat "with" as a required term).
-const SEARCH_STOPWORDS = new Set(['a', 'an', 'the', 'with', 'for', 'and', 'or', 'of', 'in', 'on', 'to', 'is', 'are']);
+const SEARCH_STOPWORDS = new Set(['a', 'an', 'the', 'with', 'for', 'and', 'or', 'of', 'in', 'on', 'to', 'is', 'are', 'which', 'what', 'whats', 'how', 'best', 'good', 'need', 'want', 'looking', 'recommend', 'should', 'can', 'could', 'would', 'will', 'do', 'does', 'i', 'my', 'me', 'you', 'your', 'that', 'this', 'some', 'any', 'please', 'help', 'get', 'buy', 'use', 'using', 'something']);
 const SEARCH_SPEC_PATHS = ['model', 'warranty', 'condition', 'productType', 'catalogueType', 'configuration', 'countryOfSale'];
 
 // Common alternate names for the same product, so a search for one term also
@@ -86,7 +87,7 @@ function pricingOf(variants: ListProduct['variants']) {
 
 @Injectable()
 export class StorefrontProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly capabilities: CapabilitiesService) {}
 
   // Free-text search: each word must match somewhere (title, SEO title, descriptions,
   // SKU/MPN, brand, category/parent category name, or a spec facet like
@@ -152,8 +153,9 @@ export class StorefrontProductsService {
   private async fuzzyProductIds(q: string): Promise<number[]> {
     const term = q.trim();
     if (term.length < 3) return [];
-    // pg_trgm is optional: if the extension isn't installed on the DB server,
-    // fall back to strict matching only instead of failing the whole search.
+    // pg_trgm is optional: without it the search uses strict matching only. Availability is
+    // re-detected periodically, so fuzzy matching switches on by itself once the extension exists.
+    if (!(await this.capabilities.isEnabled('pg_trgm'))) return [];
     const rows = await this.prisma.$queryRaw<{ id: number }[]>`
       SELECT p.id
       FROM products p
@@ -176,7 +178,9 @@ export class StorefrontProductsService {
     return rows.map((row) => row.id);
   }
 
-  private async buildWhere(query: ListStorefrontProductsQueryDto): Promise<Prisma.ProductWhereInput> {
+  // `loose`: match products containing ANY of the query's words instead of all of them - the
+  // fallback for sentence-style searches ("drill for concrete walls") that no single product satisfies.
+  private async buildWhere(query: ListStorefrontProductsQueryDto, loose = false): Promise<Prisma.ProductWhereInput> {
     const conditions: Prisma.ProductWhereInput[] = [{ status: 'ACTIVE', deletedAt: null }];
 
     if (query.category) {
@@ -193,6 +197,7 @@ export class StorefrontProductsService {
       });
     }
     if (query.brand) conditions.push({ brand: { slug: { in: query.brand.split(',').filter(Boolean) } } });
+    if (query.platform) conditions.push({ toolPlatform: { equals: query.platform, mode: 'insensitive' } });
     if (query.inStock) conditions.push({ variants: { some: { status: 'ACTIVE', deletedAt: null, stockQty: { gt: 0 } } } });
     if (query.specs) {
       let specs: unknown;
@@ -208,12 +213,26 @@ export class StorefrontProductsService {
       const fuzzyIds = await this.fuzzyProductIds(query.q);
       conditions.push({
         OR: [
-          { AND: this.searchConditions(query.q) },
+          loose ? { OR: this.searchConditions(query.q) } : { AND: this.searchConditions(query.q) },
           ...(fuzzyIds.length ? [{ id: { in: fuzzyIds } }] : []),
         ],
       });
     }
     return { AND: conditions };
+  }
+
+  private async rankByWords(where: Prisma.ProductWhereInput, q: string): Promise<number[]> {
+    const words = [...new Set(q.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length >= 3 && !SEARCH_STOPWORDS.has(w)))];
+    const rows = await this.prisma.product.findMany({
+      where, take: 300,
+      select: { id: true, title: true, shortDescription: true, description: true, brand: { select: { title: true } }, category: { select: { title: true } } },
+    });
+    const score = (row: (typeof rows)[number]) => {
+      const title = row.title.toLowerCase();
+      const rest = [row.shortDescription, row.description, row.brand?.title, row.category.title].join(' ').toLowerCase();
+      return words.reduce((sum, word) => sum + (title.includes(word) ? 2 : 0) + (rest.includes(word) ? 1 : 0), 0);
+    };
+    return rows.sort((a, b) => score(b) - score(a) || a.id - b.id).map((row) => row.id);
   }
 
   private async fetchProductsByIds(ids: number[]): Promise<ListProduct[]> {
@@ -319,6 +338,11 @@ export class StorefrontProductsService {
     }
 
     let where = await this.buildWhere(query);
+    let loose = false;
+    if (query.q && !(await this.prisma.product.count({ where }))) {
+      where = await this.buildWhere(query, true);
+      loose = true;
+    }
     let priceOrderedIds: number[] | null = null;
     if (query.priceMin !== undefined || query.priceMax !== undefined || query.onSale || sort === 'price_asc' || sort === 'price_desc' || sort === 'discount_desc') {
       // Use the same primary-variant fallback as card pricing. Fetch full
@@ -344,10 +368,12 @@ export class StorefrontProductsService {
       }
       where = { AND: [where, { id: { in: matching.map((p) => p.id) } }] };
     }
+    // Any-word matches have no natural order, so rank them by how many of the query's words each product contains.
+    if (loose && !priceOrderedIds && query.q) priceOrderedIds = await this.rankByWords(where, query.q);
     const facets = await this.facets(where);
     if (priceOrderedIds) {
       const ids = priceOrderedIds.slice((page - 1) * perPage, page * perPage);
-      return { items: await this.attachMedia(await this.fetchProductsByIds(ids)), meta: { ...buildPaginationMeta(page, perPage, priceOrderedIds.length), facets } };
+      return { items: await this.attachMedia(await this.fetchProductsByIds(ids)), meta: { ...buildPaginationMeta(page, perPage, priceOrderedIds.length), facets, ...(loose ? { loose } : {}) } };
     }
 
     const orderBy: Prisma.ProductOrderByWithRelationInput =
@@ -357,7 +383,7 @@ export class StorefrontProductsService {
       this.prisma.product.findMany({ where, orderBy, ...paginationSkipTake(page, perPage), include: listInclude }),
       this.prisma.product.count({ where }),
     ]);
-    return { items: await this.attachMedia(products), meta: { ...buildPaginationMeta(page, perPage, total), facets } };
+    return { items: await this.attachMedia(products), meta: { ...buildPaginationMeta(page, perPage, total), facets, ...(loose ? { loose } : {}) } };
   }
 
   // Used by the merchandising module to resolve featured-section products.
@@ -397,6 +423,47 @@ export class StorefrontProductsService {
       .map((c) => c.id);
 
     return this.byIds(matchingIds);
+  }
+
+  // Real distinct tool platforms in the catalogue (e.g. "DeWalt 18V XR"),
+  // with how many active products carry each one - powers the storefront's
+  // battery/platform matcher and the admin field's suggestions, instead of a
+  // hardcoded brand list.
+  async toolPlatforms(category?: string) {
+    const inCategory = category ? await this.buildWhere({ category } as ListStorefrontProductsQueryDto) : {};
+    const rows = await this.prisma.product.groupBy({
+      by: ['toolPlatform'],
+      where: { AND: [inCategory, { status: 'ACTIVE', deletedAt: null, toolPlatform: { not: null } }] },
+      _count: { _all: true },
+      orderBy: { _count: { toolPlatform: 'desc' } },
+    });
+    return rows.map((row) => ({ platform: row.toolPlatform as string, productCount: row._count._all }));
+  }
+
+  // Other products on the same battery/tool platform as this one (e.g. a
+  // bare tool and the batteries/chargers that fit it) - the real match
+  // behind the storefront's compatibility finder.
+  async platformMatches(slug: string, query: CompatibleProductsQueryDto) {
+    const source = await this.prisma.product.findFirst({
+      where: { slug, status: 'ACTIVE', deletedAt: null },
+      select: { id: true, toolPlatform: true },
+    });
+    if (!source) throw new NotFoundException('Product not found');
+    if (!source.toolPlatform) return [];
+
+    const matches = await this.prisma.product.findMany({
+      where: {
+        status: 'ACTIVE',
+        deletedAt: null,
+        id: { not: source.id },
+        toolPlatform: source.toolPlatform,
+        ...(query.category ? { category: { slug: query.category } } : {}),
+      },
+      select: { id: true },
+      take: query.limit ?? 4,
+    });
+
+    return this.byIds(matches.map((m) => m.id));
   }
 
   // "Customers who bought this also bought" - real order co-occurrence, not

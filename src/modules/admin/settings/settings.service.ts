@@ -8,7 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { UpsertSettingDto } from './dto/upsert-setting.dto';
 import { SaveIntegrationDto } from './dto/integration-settings.dto';
 
-const scopes = ['payment.paypal', 'payment.2checkout', 'payment.stripe', 'payment.skrill', 'delivery.fedex', 'delivery.evri', 'email.smtp'] as const;
+const scopes = ['payment.paypal', 'payment.2checkout', 'payment.stripe', 'payment.skrill', 'delivery.fedex', 'delivery.evri', 'email.smtp', 'ai.openai'] as const;
 export type IntegrationScope = typeof scopes[number];
 type StoredIntegration = { encrypted: string; iv: string; tag: string; mode: 'SANDBOX' | 'LIVE'; enabled?: boolean; updatedAt: string };
 
@@ -97,6 +97,6 @@ export class SettingsService {
     const row = await this.prisma.setting.findUnique({ where: { key: `integration.${scope}` } });
     if (!row) return null;
     const record = row.value as unknown as StoredIntegration;
-    return { mode: record.mode, settings: this.decrypt(record) };
+    return { mode: record.mode, enabled: record.enabled ?? true, settings: this.decrypt(record) };
   }
 }

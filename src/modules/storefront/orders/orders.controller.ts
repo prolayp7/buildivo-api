@@ -3,6 +3,8 @@ import type { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { TrackOrderDto } from './dto/track-order.dto';
+import { Throttle } from '@nestjs/throttler';
 import { OptionalCustomerAuthGuard } from '../../../common/customer/optional-customer-auth.guard';
 import { CustomerAuthGuard } from '../../../common/customer/customer-auth.guard';
 import { CurrentCustomer } from '../../../common/customer/current-customer.decorator';
@@ -24,6 +26,14 @@ export class OrdersController {
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.ordersService.checkout(customer?.id, guestToken, dto, idempotencyKey);
+  }
+
+  // Public: needs the order number AND the email on the order. Tighter rate limit than the default.
+  @Post('track')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  track(@Body() dto: TrackOrderDto) {
+    return this.ordersService.track(dto.orderNumber, dto.email);
   }
 
   @Get()

@@ -160,4 +160,25 @@ describe('Storefront Catalog (e2e)', () => {
 
     await request(app.getHttpServer()).get('/api/v1/products/does-not-exist').expect(404);
   });
+  describe('sentence-style search', () => {
+    const search = async (q: string) => (await request(app.getHttpServer()).get('/api/v1/products').query({ q, perPage: 50 }).expect(200)).body as { data: { title: string }[]; meta: { total: number; loose?: boolean } };
+
+    it('does not flag a normal one-word search as loose', async () => {
+      const res = await search('drill');
+      expect(res.meta.total).toBeGreaterThan(0);
+      expect(res.meta.loose).toBeUndefined();
+    });
+
+    it('falls back to any-word matching, flagged as loose, when no product has every word', async () => {
+      const res = await search('drill for zzqxvnothing');
+      expect(res.meta.loose).toBe(true);
+      expect(res.meta.total).toBeGreaterThan(0);
+      expect(res.data[0].title.toLowerCase()).toContain('drill');
+    });
+
+    it('still returns nothing when no word matches anything', async () => {
+      const res = await search('zzqxv wwkjh ppqrz');
+      expect(res.meta.total).toBe(0);
+    });
+  });
 });

@@ -254,7 +254,7 @@ export class OrdersService {
         where,
         ...paginationSkipTake(page, perPage),
         orderBy: { placedAt: 'desc' },
-        include: { items: true },
+        include: { items: { include: { returns: { select: { id: true, returnStatus: true } } } } },
       }),
       this.prisma.order.count({ where }),
     ]);
@@ -297,6 +297,34 @@ export class OrdersService {
     const order = await this.findByUuid(uuid);
     if (order.userId !== customerId) throw new NotFoundException('Order not found');
     return order;
+  }
+
+  // Guest-friendly status lookup: the order number alone is not enough, the email on the order must match
+  // too. A wrong number and a wrong email get the same answer so this cannot be used to probe for orders.
+  // Returns only what a shopper needs to see - no address, payment or internal notes.
+  async track(orderNumber: string, email: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { orderNumber: { equals: orderNumber.trim(), mode: 'insensitive' }, email: { equals: email.trim(), mode: 'insensitive' } },
+      include: {
+        items: { select: { titleSnapshot: true, variantTitleSnapshot: true, quantity: true } },
+        shippingMethod: { select: { title: true, carrier: true } },
+        statusHistory: { select: { toStatus: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
+        shipments: { select: { carrier: true, trackingNumber: true, trackingUrl: true, estimatedDeliveryAt: true, deliveredAt: true, events: { select: { status: true, description: true, location: true, occurredAt: true }, orderBy: { occurredAt: 'desc' } } } },
+      },
+    });
+    if (!order) throw new NotFoundException("We couldn't find an order with those details. Check the order number and email address.");
+    return {
+      orderNumber: order.orderNumber,
+      status: order.status,
+      placedAt: order.placedAt,
+      shippingMethod: order.shippingMethod,
+      trackingCarrier: order.trackingCarrier,
+      trackingNumber: order.trackingNumber,
+      trackingUrl: order.trackingUrl,
+      items: order.items,
+      history: order.statusHistory,
+      shipments: order.shipments,
+    };
   }
 
   async cancel(customerId: number, uuid: string, reason?: string) {

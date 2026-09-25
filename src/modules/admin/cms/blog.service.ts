@@ -13,6 +13,7 @@ const include = { blogCategory: true, author: true };
       tags: dto.tags as Prisma.InputJsonValue | undefined,
       steps: dto.steps as Prisma.InputJsonValue | undefined,
       materials: dto.materials as Prisma.InputJsonValue | undefined,
+      contentBlocks: dto.contentBlocks as Prisma.InputJsonValue | undefined,
       publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
     };
   }

@@ -80,8 +80,8 @@ export class BundlesService {
           description: dto.description,
           bundlePrice: dto.bundlePrice,
           status: dto.status,
-          startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
-          endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+          startsAt: dto.startsAt === null ? null : dto.startsAt ? new Date(dto.startsAt) : undefined, // null clears the schedule, undefined leaves it
+          endsAt: dto.endsAt === null ? null : dto.endsAt ? new Date(dto.endsAt) : undefined,
         },
         include: bundleInclude,
       });

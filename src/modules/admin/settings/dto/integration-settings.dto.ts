@@ -1,7 +1,7 @@
 import { IsBoolean, IsIn, IsObject, IsString, MinLength } from 'class-validator';
 
 export class UnlockIntegrationDto {
-  @IsString() @IsIn(['payment.paypal', 'payment.2checkout', 'payment.stripe', 'payment.skrill', 'delivery.fedex', 'delivery.evri', 'email.smtp']) scope!: string;
+  @IsString() @IsIn(['payment.paypal', 'payment.2checkout', 'payment.stripe', 'payment.skrill', 'delivery.fedex', 'delivery.evri', 'email.smtp', 'ai.openai']) scope!: string;
   @IsString() @MinLength(1) password!: string;
 }
 

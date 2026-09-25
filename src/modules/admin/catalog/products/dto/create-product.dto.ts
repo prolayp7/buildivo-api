@@ -202,6 +202,14 @@ export class CreateProductDto {
   @MaxLength(50)
   coverageUnit?: string;
 
+  // Battery/tool ecosystem this product belongs to, e.g. "DeWalt 18V XR".
+  // Shared by bare tools, batteries and chargers so the compatibility finder
+  // can match them. Omit for products that aren't part of a tool platform.
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  toolPlatform?: string;
+
   @IsOptional()
   @IsIn(['DENY', 'ALLOW'])
   outOfStockBehavior?: 'DENY' | 'ALLOW';

@@ -22,6 +22,11 @@ export class ListStorefrontProductsQueryDto extends PaginationQueryDto {
   brand?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  platform?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)

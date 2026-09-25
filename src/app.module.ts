@@ -7,6 +7,8 @@ import { AuditLogsModule } from './modules/admin/audit-logs/audit-logs.module';
 import { AuditModule } from './common/audit/audit.module';
 import { correlationMiddleware } from './common/audit/correlation';
 import { PrismaModule } from './prisma/prisma.module';
+import { CapabilitiesModule } from './modules/capabilities/capabilities.module';
+import { AdminAiModule } from './modules/admin/ai/ai.module';
 import { AdminCoreModule } from './common/admin/admin-core.module';
 import { AdminAuthModule } from './modules/admin/auth/admin-auth.module';
 import { CustomersModule } from './modules/admin/customers/customers.module';
@@ -78,6 +80,8 @@ import { SitemapModule } from './modules/storefront/sitemap/sitemap.module';
       }),
     }),
     PrismaModule,
+    CapabilitiesModule,
+    AdminAiModule,
     AuditModule,
     EmailModule,
     AdminCoreModule,

@@ -49,6 +49,23 @@ export class WishlistService {
     return this.getOrCreate(userId);
   }
 
+  // The storefront saves whole products, not variants: use the product's default (or first active) variant.
+  async addProduct(userId: number, productId: number) {
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { productId, deletedAt: null, status: 'ACTIVE', product: { status: 'ACTIVE', deletedAt: null } },
+      orderBy: [{ isDefault: 'desc' }, { id: 'asc' }],
+    });
+    if (!variant) throw new NotFoundException('Product not found');
+    return this.addItem(userId, variant.id);
+  }
+
+  // Idempotent: removing a product that is not saved is fine.
+  async removeProduct(userId: number, productId: number) {
+    const wishlist = await this.getOrCreate(userId);
+    await this.prisma.wishlistItem.deleteMany({ where: { wishlistId: wishlist.id, productVariant: { productId } } });
+    return this.getOrCreate(userId);
+  }
+
   async removeItem(userId: number, productVariantId: number) {
     const wishlist = await this.getOrCreate(userId);
     const result = await this.prisma.wishlistItem.deleteMany({ where: { wishlistId: wishlist.id, productVariantId } });

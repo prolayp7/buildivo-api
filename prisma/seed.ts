@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedProducts } from './seed-products';
+import { seedActivity } from './seed-activity';
 
 const prisma = new PrismaClient();
 
@@ -118,6 +119,16 @@ async function main() {
 
   // Buildivo categories, brands, attributes and linked demo products.
   const productSeedResult = await seedProducts(prisma);
+
+  // Cordless tools share a battery platform per brand, so the compatibility finder and the platform
+  // filter have data to work with. Idempotent, and never overwrites a platform an admin has set.
+  const batteryPlatforms: [string, string][] = [['dewalt', 'DeWalt 18V XR'], ['makita', 'Makita 18V LXT'], ['milwaukee', 'Milwaukee M18'], ['bosch', 'Bosch 18V Professional']];
+  for (const [brandSlug, toolPlatform] of batteryPlatforms) {
+    await prisma.product.updateMany({
+      where: { brand: { slug: brandSlug }, toolPlatform: null, deletedAt: null, OR: [{ title: { contains: 'Cordless', mode: 'insensitive' } }, { title: { contains: '18V' } }] },
+      data: { toolPlatform },
+    });
+  }
   console.log('Buildivo catalogue:', productSeedResult);
 
   // Settings
@@ -172,6 +183,7 @@ async function main() {
   const specialPages: { label: string; href: string; icon: string }[] = [
     { label: 'Deals & Clearance', href: '/deals', icon: 'local_fire_department' },
     { label: 'Top Brands', href: '/brands', icon: 'star' },
+    { label: 'Project Bundles', href: '/bundles', icon: 'inventory_2' },
   ];
   for (const [index, page] of specialPages.entries()) {
     const existing = await prisma.menuItem.findFirst({ where: { menuId: mainMenu.id, href: page.href } });
@@ -378,6 +390,35 @@ async function main() {
     await prisma.homepageSection.update({ where: { id: ecosystemMatcherSection.id }, data: { config: ecosystemMatcherConfig } });
   }
 
+  // Demo product bundles ("Shop by Complete Job"): real in-stock variants picked per category,
+  // priced 10% under the parts total. Idempotent - skipped once a bundle with the slug exists.
+  const bundleSpecs: { slug: string; title: string; description: string; lines: { category: string; quantity: number }[] }[] = [
+    { slug: 'decking-outdoor-framing-kit', title: 'Decking & Outdoor Framing Kit', description: 'Fixings, fasteners and outdoor tools for a deck or garden frame build.', lines: [{ category: 'timber-screws', quantity: 4 }, { category: 'nuts-bolts-washers', quantity: 2 }, { category: 'garden-cutting-tools', quantity: 1 }, { category: 'pressure-washers', quantity: 1 }] },
+    { slug: 'complete-bathroom-refit-kit', title: 'Complete Bathroom Refit Kit', description: 'Pipe fittings, taps, sealant and tile adhesive for a full bathroom refit.', lines: [{ category: 'pipe-fittings', quantity: 3 }, { category: 'taps-mixers', quantity: 1 }, { category: 'sealants', quantity: 2 }, { category: 'tile-adhesives', quantity: 2 }] },
+    { slug: 'jobsite-electrical-rough-in-kit', title: 'Jobsite Electrical Rough-In Kit', description: 'Cable, switches, sockets and lighting for a first-fix electrical rough-in.', lines: [{ category: 'electrical-cable', quantity: 2 }, { category: 'switches-sockets', quantity: 4 }, { category: 'work-lighting', quantity: 1 }, { category: 'screwdrivers', quantity: 1 }] },
+    { slug: 'workshop-storage-build-kit', title: 'Workshop Storage Build Kit', description: 'Shelving, tool storage and anchors to fit out a workshop.', lines: [{ category: 'workshop-shelving', quantity: 2 }, { category: 'tool-boxes', quantity: 1 }, { category: 'tool-bags', quantity: 1 }, { category: 'wall-plugs-anchors', quantity: 1 }] },
+  ];
+  for (const spec of bundleSpecs) {
+    if (await prisma.productBundle.findFirst({ where: { slug: spec.slug } })) continue;
+    const items: { productVariantId: number; quantity: number; unitPrice: number }[] = [];
+    for (const line of spec.lines) {
+      const variant = await prisma.productVariant.findFirst({
+        where: { isDefault: true, deletedAt: null, status: 'ACTIVE', stockQty: { gte: 20 }, product: { deletedAt: null, status: 'ACTIVE', category: { slug: line.category } } },
+        orderBy: { id: 'asc' },
+      });
+      if (variant) items.push({ productVariantId: variant.id, quantity: line.quantity, unitPrice: Number(variant.salePrice ?? variant.price) });
+    }
+    if (items.length < spec.lines.length) continue;
+    const regularTotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    await prisma.productBundle.create({
+      data: {
+        title: spec.title, slug: spec.slug, description: spec.description, status: 'ACTIVE',
+        bundlePrice: Math.round(regularTotal * 0.9 * 100) / 100,
+        items: { create: items.map(({ productVariantId, quantity }) => ({ productVariantId, quantity })) },
+      },
+    });
+  }
+
   // Blog & static CMS pages - demo content for the storefront's content pages.
   const blogCategory = await prisma.blogCategory.upsert({
     where: { slug: 'buying-guides' },
@@ -446,6 +487,9 @@ async function main() {
       ],
     });
   }
+
+  console.log('Seeding activity data (customers, orders, payments, reviews, etc.)...');
+  await seedActivity(prisma);
 
   console.log('Seed complete.');
 }

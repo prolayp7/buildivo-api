@@ -6,6 +6,7 @@ describe('Storefront Wishlist (e2e)', () => {
   let app: INestApplication;
   let accessToken: string;
   let variantId: number;
+  let productId: number;
 
   beforeAll(async () => {
     ({ app } = await createTestApp());
@@ -17,6 +18,7 @@ describe('Storefront Wishlist (e2e)', () => {
     const list = await request(app.getHttpServer()).get('/api/v1/products?perPage=1').expect(200);
     const detail = await request(app.getHttpServer()).get(`/api/v1/products/${list.body.data[0].slug}`).expect(200);
     variantId = detail.body.data.variants[0].id;
+    productId = detail.body.data.id;
   });
 
   afterAll(async () => {
@@ -47,5 +49,21 @@ describe('Storefront Wishlist (e2e)', () => {
     expect(removed.body.data.items).toHaveLength(0);
 
     await auth(request(app.getHttpServer()).delete(`/api/v1/wishlist/items/${variantId}`)).expect(404);
+  });
+  it('saves and removes whole products (what the storefront wishlist does)', async () => {
+    const auth = (req: request.Test) => req.set('Authorization', `Bearer ${accessToken}`);
+    const productIds = (res: request.Response) => (res.body.data.items as { productVariant: { product: { id: number } } }[]).map((item) => item.productVariant.product.id);
+
+    await request(app.getHttpServer()).post(`/api/v1/wishlist/products/${productId}`).expect(401);
+    const added = await auth(request(app.getHttpServer()).post(`/api/v1/wishlist/products/${productId}`)).expect(201);
+    expect(productIds(added)).toEqual([productId]);
+    const again = await auth(request(app.getHttpServer()).post(`/api/v1/wishlist/products/${productId}`)).expect(201);
+    expect(productIds(again)).toEqual([productId]);
+
+    await auth(request(app.getHttpServer()).post('/api/v1/wishlist/products/999999999')).expect(404);
+
+    const removed = await auth(request(app.getHttpServer()).delete(`/api/v1/wishlist/products/${productId}`)).expect(200);
+    expect(removed.body.data.items).toHaveLength(0);
+    await auth(request(app.getHttpServer()).delete(`/api/v1/wishlist/products/${productId}`)).expect(200); // idempotent
   });
 });

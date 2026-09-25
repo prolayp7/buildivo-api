@@ -9,4 +9,9 @@ export class StorefrontSettingsController {
   general() {
     return this.service.general();
   }
+
+  @Get('footer')
+  footer() {
+    return this.service.footer();
+  }
 }

@@ -12,7 +12,7 @@ import { StripeGatewayService } from './stripe-gateway.service';
 const payableOrderStatuses = ['PENDING', 'AWAITING_PAYMENT', 'FAILED'] as const;
 type StoredIntegrationFlags = { enabled?: boolean };
 
-function settingKeyFor(provider: PaymentProvider): string {
+export function settingKeyFor(provider: PaymentProvider): string {
   return `integration.payment.${provider === 'TWOCHECKOUT' ? '2checkout' : provider.toLowerCase()}`;
 }
 const terminalAttemptStatuses = ['CAPTURED', 'FAILED', 'DECLINED', 'CANCELLED', 'EXPIRED'];

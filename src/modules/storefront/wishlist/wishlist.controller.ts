@@ -21,6 +21,17 @@ export class WishlistController {
     return this.wishlistService.addItem(customer.id, dto.productVariantId);
   }
 
+  @Post('products/:productId')
+  @HttpCode(201)
+  addProduct(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('productId', ParseIntPipe) productId: number) {
+    return this.wishlistService.addProduct(customer.id, productId);
+  }
+
+  @Delete('products/:productId')
+  removeProduct(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('productId', ParseIntPipe) productId: number) {
+    return this.wishlistService.removeProduct(customer.id, productId);
+  }
+
   @Delete('items/:variantId')
   removeItem(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('variantId', ParseIntPipe) variantId: number) {
     return this.wishlistService.removeItem(customer.id, variantId);
