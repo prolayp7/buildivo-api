@@ -330,11 +330,13 @@ export class OrdersService {
   async cancel(customerId: number, uuid: string, reason?: string) {
     const order = await this.findByUuid(uuid);
     if (order.userId !== customerId) throw new NotFoundException('Order not found');
-    if (!CANCELLABLE_STATUSES.includes(order.status)) {
+    const failedUnpaid = order.status === 'FAILED' && order.paymentStatus === 'FAILED';
+    if (!CANCELLABLE_STATUSES.includes(order.status) && !failedUnpaid) {
       throw new BadRequestException(`Order cannot be cancelled once it is ${order.status.toLowerCase().replace(/_/g, ' ')}`);
     }
     const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      const changed = await tx.order.updateMany({ where: { id: order.id, status: order.status, paymentStatus: order.paymentStatus }, data: { status: 'CANCELLED' } });
+      if (!changed.count) throw new ConflictException('Order status changed. Refresh the order and try again.');
       await tx.orderStatusHistory.create({
         data: { orderId: order.id, fromStatus: order.status, toStatus: 'CANCELLED', note: reason },
       });

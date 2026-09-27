@@ -19,6 +19,7 @@ export class BundlesService {
     const where: Prisma.ProductBundleWhereInput = {
       ...(query.includeDeleted ? {} : { deletedAt: null }),
       ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
+      ...(query.status ? { status: query.status } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.productBundle.findMany({ where, ...paginationSkipTake(page, perPage), orderBy: { createdAt: 'desc' }, include: bundleInclude }),

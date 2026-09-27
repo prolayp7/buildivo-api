@@ -3,9 +3,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { paymentProviders, type PaymentProvider } from '../../payments/dto/create-payment-attempt.dto';
 import { settingKeyFor } from '../../payments/payment-attempts.service';
 import { normaliseFooter } from './footer-settings';
+import { normaliseRegisterPage } from './register-page-settings';
 
 const GENERAL_SETTINGS_KEY = 'general.site';
 export const FOOTER_SETTINGS_KEY = 'footer.site';
+export const REGISTER_PAGE_SETTINGS_KEY = 'register.page';
 const GATEWAY_LABELS: Record<PaymentProvider, string> = { STRIPE: 'Stripe', PAYPAL: 'PayPal', TWOCHECKOUT: '2Checkout' };
 
 @Injectable()
@@ -15,6 +17,12 @@ export class StorefrontSettingsService {
   async general(): Promise<Record<string, unknown>> {
     const row = await this.prisma.setting.findUnique({ where: { key: GENERAL_SETTINGS_KEY } });
     return (row?.value as Record<string, unknown>) ?? {};
+  }
+
+  // Content of the "Create your account" page (incentive block, trending card, trust list), admin-managed.
+  async registerPage() {
+    const row = await this.prisma.setting.findUnique({ where: { key: REGISTER_PAGE_SETTINGS_KEY } });
+    return normaliseRegisterPage(row?.value);
   }
 
   // Footer content is admin-managed; `gateways` lists the payment gateways currently enabled under

@@ -202,9 +202,16 @@ export class ProductsService {
   }
 
   async update(id: number, dto: UpdateProductDto) {
-    await this.detail(id);
-    if (dto.slug) await this.assertSlugAvailable(dto.slug, id);
+    const current = await this.detail(id);
+    if (dto.slug && dto.slug !== current.slug) await this.assertSlugAvailable(dto.slug, id);
     return this.prisma.$transaction(async (tx) => {
+      if (dto.slug && dto.slug !== current.slug) {
+        await tx.productSlugRedirect.upsert({
+          where: { oldSlug: current.slug },
+          update: { productId: id },
+          create: { oldSlug: current.slug, productId: id },
+        });
+      }
       await tx.product.update({
         where: { id },
         data: this.productData(dto) as Prisma.ProductUncheckedUpdateInput,
@@ -324,6 +331,7 @@ export class ProductsService {
           isIndexable: source.isIndexable,
           metaTitle: source.metaTitle,
           metaDescription: source.metaDescription,
+          socialShareImage: source.socialShareImage,
           seoTags: source.seoTags,
           offlineRedirectBehavior: source.offlineRedirectBehavior,
           redirectTargetCategoryId: source.redirectTargetCategoryId,

@@ -103,14 +103,29 @@ export class OrdersService {
         user: { select: { id: true, email: true, firstName: true, lastName: true } },
         items: {
           where: { savedForLater: false },
-          include: { productVariant: { include: { product: { select: { id: true, title: true, slug: true } } } } },
+          include: {
+            productVariant: {
+              include: {
+                product: { select: { id: true, title: true, slug: true } },
+                priceTiers: { orderBy: { minQty: 'asc' } },
+              },
+            },
+          },
           orderBy: { updatedAt: 'desc' },
         },
       },
     });
     const rows = carts.map((cart) => {
       const quantity = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-      const value = cart.items.reduce((sum, item) => sum + Number(item.productVariant.salePrice ?? item.productVariant.price) * item.quantity, 0);
+      const unitPrice = (item: typeof cart.items[number]) => {
+        if (item.unitPriceOverride !== null) return Number(item.unitPriceOverride);
+        const basePrice = Number(item.productVariant.salePrice ?? item.productVariant.price);
+        const tierPrice = item.productVariant.priceTiers
+          .filter((tier) => item.quantity >= tier.minQty)
+          .sort((a, b) => b.minQty - a.minQty)[0];
+        return tierPrice && Number(tierPrice.unitPrice) < basePrice ? Number(tierPrice.unitPrice) : basePrice;
+      };
+      const value = cart.items.reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0);
       return {
         id: cart.id,
         customerType: cart.user ? 'REGISTERED' : 'GUEST',
@@ -123,7 +138,7 @@ export class OrdersService {
         items: cart.items.map((item) => ({
           id: item.id,
           quantity: item.quantity,
-          unitPrice: Number(item.productVariant.salePrice ?? item.productVariant.price),
+          unitPrice: unitPrice(item),
           variantId: item.productVariant.id,
           variantTitle: item.productVariant.title,
           product: item.productVariant.product,

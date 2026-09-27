@@ -299,6 +299,11 @@ export class CreateProductDto {
   metaDescription?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  socialShareImage?: string | null;
+
+  @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })

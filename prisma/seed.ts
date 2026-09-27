@@ -129,6 +129,13 @@ async function main() {
       data: { toolPlatform },
     });
   }
+
+  // Tile adhesive is sold by coverage (about 5 m2 per bag), which is what the DIY materials calculator needs.
+  // Idempotent, and never overwrites coverage an admin has set.
+  await prisma.product.updateMany({
+    where: { category: { slug: 'tile-adhesives' }, coverageValue: null, deletedAt: null },
+    data: { coverageValue: 5, coverageUnit: 'm2_per_bag' },
+  });
   console.log('Buildivo catalogue:', productSeedResult);
 
   // Settings

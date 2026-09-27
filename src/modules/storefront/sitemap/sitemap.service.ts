@@ -27,6 +27,7 @@ export class SitemapService {
     const urls: SitemapUrl[] = [
       { loc: `${STOREFRONT_URL}/` },
       { loc: `${STOREFRONT_URL}/blog` },
+      { loc: `${STOREFRONT_URL}/guides` },
       ...products.map((p) => ({ loc: `${STOREFRONT_URL}/p/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
       ...categories.map((c) => ({ loc: `${STOREFRONT_URL}/c/${encodeURIComponent(c.slug)}`, lastmod: c.updatedAt })),
       ...posts.map((p) => ({ loc: `${STOREFRONT_URL}/blog/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),

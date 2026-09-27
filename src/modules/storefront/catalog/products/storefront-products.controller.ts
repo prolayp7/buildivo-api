@@ -61,6 +61,11 @@ export class StorefrontProductsController {
     return this.recommendations.forProduct(slug, Math.min(Math.max(limit, 1), 12));
   }
 
+  @Get(':slug/route-resolution')
+  routeResolution(@Param('slug') slug: string) {
+    return this.productsService.routeResolution(slug);
+  }
+
   @Get(':slug')
   bySlug(@Param('slug') slug: string) {
     return this.productsService.bySlug(slug);

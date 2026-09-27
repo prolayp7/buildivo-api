@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { buildPaginationMeta, paginationSkipTake } from '../../../common/pagination';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -11,10 +12,23 @@ export class CustomersService {
   async list(query: ListCustomersQueryDto) {
     const page = query.page!;
     const perPage = query.perPage!;
+    const settledStatuses = ['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const;
     if (query.dateFrom && query.dateTo && new Date(query.dateFrom) > new Date(query.dateTo)) {
       throw new BadRequestException('dateFrom cannot be after dateTo');
     }
-    const where = {
+    const segmentGroups = query.segment && query.segment !== 'POTENTIAL'
+      ? await this.prisma.order.groupBy({
+          by: ['userId'],
+          where: { userId: { not: null }, paymentStatus: { in: [...settledStatuses] } },
+          _count: { _all: true },
+        })
+      : [];
+    const segmentUserIds = query.segment === 'RETURNING'
+      ? segmentGroups.filter((group) => group._count._all >= 2).map((group) => group.userId!).filter(Boolean)
+      : query.segment === 'FIRST_TIME'
+        ? segmentGroups.filter((group) => group._count._all === 1).map((group) => group.userId!).filter(Boolean)
+        : [];
+    const where: Prisma.UserWhereInput = {
       deletedAt: null,
       ...(query.status ? { status: query.status } : {}),
       ...((query.dateFrom || query.dateTo) ? { createdAt: {
@@ -27,6 +41,8 @@ export class CustomersService {
         { lastName: { contains: query.q, mode: 'insensitive' as const } },
         { phone: { contains: query.q, mode: 'insensitive' as const } },
       ] } : {}),
+      ...(query.segment === 'POTENTIAL' ? { orders: { none: { paymentStatus: { in: [...settledStatuses] } } } } : {}),
+      ...(query.segment === 'FIRST_TIME' || query.segment === 'RETURNING' ? { id: { in: segmentUserIds } } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -52,28 +68,52 @@ export class CustomersService {
     const customerIds = items.map((item) => item.id);
     const sales = customerIds.length ? await this.prisma.order.groupBy({
       by: ['userId'],
-      where: { userId: { in: customerIds }, paymentStatus: { in: ['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'] } },
+      where: { userId: { in: customerIds }, paymentStatus: { in: [...settledStatuses] } },
       _sum: { total: true },
+      _count: { _all: true },
     }) : [];
-    const salesByCustomer = new Map(sales.map((row) => [row.userId, Number(row._sum.total ?? 0)]));
+    const salesByCustomer = new Map(sales.map((row) => [row.userId, { totalSpend: Number(row._sum.total ?? 0), settledOrderCount: row._count._all }]));
     return {
-      items: items.map(({ orders, ...item }) => ({ ...item, totalSpend: salesByCustomer.get(item.id) ?? 0, lastOrderAt: orders[0]?.placedAt ?? null })),
+      items: items.map(({ orders, ...item }) => {
+        const purchase = salesByCustomer.get(item.id);
+        const settledOrderCount = purchase?.settledOrderCount ?? 0;
+        return {
+          ...item,
+          totalSpend: purchase?.totalSpend ?? 0,
+          settledOrderCount,
+          customerSegment: settledOrderCount >= 2 ? 'RETURNING' : settledOrderCount === 1 ? 'FIRST_TIME' : 'POTENTIAL',
+          lastOrderAt: orders[0]?.placedAt ?? null,
+        };
+      }),
       meta: buildPaginationMeta(page, perPage, total),
     };
   }
 
   async summary() {
-    const [totalCustomers, activeCustomers, customersWithOrders, registeredLast30Days, orders] = await Promise.all([
+    const [totalCustomers, activeCustomers, customersWithOrders, registeredLast30Days, orders, returningCustomerRows] = await Promise.all([
       this.prisma.user.count({ where: { deletedAt: null } }),
       this.prisma.user.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
       this.prisma.user.count({ where: { deletedAt: null, orders: { some: {} } } }),
       this.prisma.user.count({ where: { deletedAt: null, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
       this.prisma.order.count({ where: { userId: { not: null } } }),
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count
+        FROM (
+          SELECT o.user_id
+          FROM orders o
+          INNER JOIN users u ON u.id = o.user_id
+          WHERE u.deleted_at IS NULL
+            AND o.payment_status IN ('PAID', 'PARTIALLY_REFUNDED', 'REFUNDED')
+          GROUP BY o.user_id
+          HAVING COUNT(o.id) >= 2
+        ) returning_customers
+      `,
     ]);
     return {
       totalCustomers,
       activeCustomers,
       customersWithOrders,
+      returningCustomers: Number(returningCustomerRows[0]?.count ?? 0),
       registeredLast30Days,
       averageOrdersPerCustomer: totalCustomers ? Number((orders / totalCustomers).toFixed(1)) : 0,
     };

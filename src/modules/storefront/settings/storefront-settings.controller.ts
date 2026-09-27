@@ -10,6 +10,11 @@ export class StorefrontSettingsController {
     return this.service.general();
   }
 
+  @Get('register-page')
+  registerPage() {
+    return this.service.registerPage();
+  }
+
   @Get('footer')
   footer() {
     return this.service.footer();

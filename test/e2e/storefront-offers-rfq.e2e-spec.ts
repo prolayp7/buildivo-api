@@ -120,6 +120,9 @@ describe('Bulk pricing, bundles and Request-a-Quote (e2e)', () => {
       const list = await api(app).get('/api/v1/bundles').expect(200);
       expect(list.body.data.some((b: { slug: string }) => b.slug === slug)).toBe(true);
 
+      const adminList = await api(app).get(`/api/v1/admin/bundles?q=E2E%20Job%20Kit&status=ACTIVE&page=1&perPage=20`).set('Authorization', `Bearer ${admin}`).expect(200);
+      expect(adminList.body.data.some((b: { slug: string }) => b.slug === slug)).toBe(true);
+
       const detail = await api(app).get(`/api/v1/bundles/${slug}`).expect(200);
       expect(detail.body.data.items).toHaveLength(2);
       expect(detail.body.data.regularTotal).toBeCloseTo(regularTotal, 2);

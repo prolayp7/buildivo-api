@@ -69,6 +69,17 @@ const listInclude = {
   },
 };
 
+const productRouteSelect = {
+  id: true,
+  slug: true,
+  status: true,
+  deletedAt: true,
+  offlineRedirectBehavior: true,
+  redirectTargetCategoryId: true,
+  categoryId: true,
+} satisfies Prisma.ProductSelect;
+type ProductRouteRecord = Prisma.ProductGetPayload<{ select: typeof productRouteSelect }>;
+
 type ListProduct = Prisma.ProductGetPayload<{ include: typeof listInclude }>;
 
 function pricingOf(variants: ListProduct['variants']) {
@@ -594,6 +605,7 @@ export class StorefrontProductsService {
       include: {
         category: { select: { id: true, title: true, slug: true, parent: { select: { id: true, title: true, slug: true } } } },
         brand: { select: { id: true, title: true, slug: true } },
+        productCondition: { select: { title: true, slug: true } },
         taxRate: { select: { ratePercent: true } },
         compatibility: true,
         faqs: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, question: true, answer: true } },
@@ -658,5 +670,46 @@ export class StorefrontProductsService {
         distribution: Object.fromEntries(ratingCounts.map((row) => [row.rating, row._count.rating])),
       },
     };
+  }
+
+  async routeResolution(slug: string) {
+    const product = await this.prisma.product.findFirst({ where: { slug }, select: productRouteSelect });
+    if (product) return this.routeForProduct(product);
+
+    const historical = await this.prisma.productSlugRedirect.findUnique({
+      where: { oldSlug: slug },
+      select: { product: { select: productRouteSelect } },
+    });
+    if (!historical) return { action: 'NOT_FOUND' as const };
+
+    const target = historical.product;
+    if (target.status === 'ACTIVE' && !target.deletedAt) {
+      return { action: 'REDIRECT' as const, statusCode: 301 as const, targetPath: `/p/${encodeURIComponent(target.slug)}` };
+    }
+    return this.routeForProduct(target);
+  }
+
+  private async routeForProduct(product: ProductRouteRecord) {
+    if (product.status === 'ACTIVE' && !product.deletedAt) return { action: 'ACTIVE' as const };
+    if (product.status === 'DRAFT' && !product.deletedAt) return { action: 'NOT_FOUND' as const };
+    if (product.offlineRedirectBehavior === 'GONE') {
+      return { action: 'GONE' as const, targetPath: await this.categoryPath(product.categoryId) };
+    }
+    if (product.offlineRedirectBehavior === 'REDIRECT_CATEGORY_301' || product.offlineRedirectBehavior === 'REDIRECT_CATEGORY_302') {
+      const categoryId = product.redirectTargetCategoryId ?? product.categoryId;
+      const targetPath = await this.categoryPath(categoryId);
+      if (!targetPath) return { action: 'NOT_FOUND' as const };
+      return {
+        action: 'REDIRECT' as const,
+        statusCode: product.offlineRedirectBehavior === 'REDIRECT_CATEGORY_301' ? 301 as const : 302 as const,
+        targetPath,
+      };
+    }
+    return { action: 'NOT_FOUND' as const };
+  }
+
+  private async categoryPath(categoryId: number) {
+    const category = await this.prisma.category.findFirst({ where: { id: categoryId, deletedAt: null }, select: { slug: true } });
+    return category ? `/c/${encodeURIComponent(category.slug)}` : undefined;
   }
 }

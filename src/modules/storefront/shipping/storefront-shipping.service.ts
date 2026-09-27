@@ -47,6 +47,13 @@ export class StorefrontShippingService {
     };
   }
 
+  // The lowest order value that qualifies for free delivery on any active method (null when none offers it) -
+  // drives the storefront's "free delivery over X" messaging, so it is never hardcoded there.
+  async freeDeliveryThreshold(): Promise<number | null> {
+    const cheapest = await this.prisma.shippingMethod.aggregate({ where: { status: 'ACTIVE', freeOverAmount: { not: null } }, _min: { freeOverAmount: true } });
+    return cheapest._min.freeOverAmount === null ? null : Number(cheapest._min.freeOverAmount);
+  }
+
   async quotes(totalWeightKg: number, subtotal: number): Promise<ShippingQuote[]> {
     const methods = await this.prisma.shippingMethod.findMany({
       where: { status: 'ACTIVE' },

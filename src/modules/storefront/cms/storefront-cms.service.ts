@@ -24,6 +24,8 @@ export class StorefrontCmsService {
     const where: Prisma.BlogPostWhereInput = {
       status: 'PUBLISHED',
       ...(query.category ? { blogCategory: { slug: query.category } } : {}),
+      // a guide = a post with at least one step (empty arrays and NULL both mean "not a guide")
+      ...(query.guides ? { AND: [{ steps: { not: Prisma.DbNull } }, { NOT: { steps: { equals: [] } } }] } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.blogPost.findMany({

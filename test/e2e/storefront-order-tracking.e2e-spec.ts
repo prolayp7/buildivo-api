@@ -85,6 +85,17 @@ describe('Order tracking and cancellation (e2e)', () => {
       await api(app).patch(`/api/v1/orders/${order.uuid}/cancel`).set(bearer).send({}).expect(400);
     });
 
+    it('lets a customer cancel an unpaid order after payment failed and only releases stock once', async () => {
+      const { order, bearer } = await placeOrder();
+      await prisma.order.update({ where: { uuid: order.uuid }, data: { status: 'FAILED', paymentStatus: 'FAILED' } });
+      const before = (await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty;
+      const cancelled = await api(app).patch(`/api/v1/orders/${order.uuid}/cancel`).set(bearer).send({ reason: 'Payment did not complete' }).expect(200);
+      expect(cancelled.body.data.status).toBe('CANCELLED');
+      expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty).toBe(before + 1);
+      await api(app).patch(`/api/v1/orders/${order.uuid}/cancel`).set(bearer).send({}).expect(400);
+      expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty).toBe(before + 1);
+    });
+
     it("will not cancel someone else's order", async () => {
       const { order } = await placeOrder();
       const { bearer: other } = await placeOrder();
@@ -94,7 +105,7 @@ describe('Order tracking and cancellation (e2e)', () => {
   describe('totals (the rule the storefront cart and checkout mirror)', () => {
     it('cart subtotal is VAT-inclusive; order total = subtotal - coupon + delivery', async () => {
       const code = `TOT-${Date.now()}`;
-      await prisma.coupon.create({ data: { code, name: 'Totals test', discountType: 'FIXED', discountAmount: 5, status: 'ACTIVE', targetType: 'ALL' } });
+      await prisma.coupon.create({ data: { code, name: 'Totals test', discountType: 'FIXED', discountAmount: 5, status: 'ACTIVE', targetType: 'ALL', excludeSaleItems: false } });
       const flat = await prisma.shippingMethod.findFirstOrThrow({ where: { status: 'ACTIVE', rateType: 'FLAT', freeOverAmount: null } });
       const variant = await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } });
       const unit = Number(variant.salePrice ?? variant.price);

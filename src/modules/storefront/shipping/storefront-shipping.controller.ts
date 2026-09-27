@@ -14,6 +14,11 @@ export class StorefrontShippingController {
     private readonly cartService: CartService,
   ) {}
 
+  @Get('free-delivery-threshold')
+  async freeDeliveryThreshold() {
+    return { threshold: await this.shippingService.freeDeliveryThreshold() };
+  }
+
   @Get()
   async quotes(@CurrentCustomer() customer: AuthenticatedCustomer | undefined, @GuestToken() guestToken?: string) {
     const { lines } = await this.cartService.linesFor(customer?.id, guestToken);
