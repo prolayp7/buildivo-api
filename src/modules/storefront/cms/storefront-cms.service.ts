@@ -21,11 +21,18 @@ export class StorefrontCmsService {
   async blogPosts(query: ListBlogPostsQueryDto) {
     const page = query.page!;
     const perPage = query.perPage!;
+    const search = query.search?.trim();
+    const filters: Prisma.BlogPostWhereInput[] = [];
+    if (query.guides) filters.push({ AND: [{ steps: { not: Prisma.DbNull } }, { NOT: { steps: { equals: [] } } }] });
+    if (search) filters.push({ OR: [
+      { title: { contains: search, mode: 'insensitive' } },
+      { excerpt: { contains: search, mode: 'insensitive' } },
+      { content: { contains: search, mode: 'insensitive' } },
+    ] });
     const where: Prisma.BlogPostWhereInput = {
       status: 'PUBLISHED',
       ...(query.category ? { blogCategory: { slug: query.category } } : {}),
-      // a guide = a post with at least one step (empty arrays and NULL both mean "not a guide")
-      ...(query.guides ? { AND: [{ steps: { not: Prisma.DbNull } }, { NOT: { steps: { equals: [] } } }] } : {}),
+      ...(filters.length ? { AND: filters } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.blogPost.findMany({

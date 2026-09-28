@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { buildPaginationMeta, paginationSkipTake } from '../../../common/pagination';
+import { dateRange } from '../../../common/date-range';
 import { ListProductQuestionsQueryDto } from './dto/list-product-questions-query.dto';
 import { AnswerProductQuestionDto } from './dto/answer-product-question.dto';
 
@@ -10,19 +11,29 @@ export class AdminQnaService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListProductQuestionsQueryDto) {
-    const page = query.page!; const perPage = query.perPage!;
+    const page = query.page!; const perPage = query.perPage!; const q = query.q?.trim();
     const where: Prisma.ProductQuestionWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.productId ? { productId: query.productId } : {}),
+      ...dateRange(query.dateFrom, query.dateTo),
+      ...(q ? { OR: [
+        { question: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
+        { product: { title: { contains: q, mode: 'insensitive' } } },
+        { answers: { some: { answer: { contains: q, mode: 'insensitive' } } } },
+      ] } : {}),
     };
-    const [items, total] = await Promise.all([
+    const [items, total, pendingCount] = await Promise.all([
       this.prisma.productQuestion.findMany({
         where, ...paginationSkipTake(page, perPage), orderBy: { createdAt: 'desc' },
         include: { product: { select: { id: true, title: true, slug: true } }, answers: true },
       }),
       this.prisma.productQuestion.count({ where }),
+      // Store-wide, so the Pending tab badge stays right whichever tab is open.
+      this.prisma.productQuestion.count({ where: { status: 'PENDING' } }),
     ]);
-    return { items, meta: buildPaginationMeta(page, perPage, total) };
+    return { items, meta: { ...buildPaginationMeta(page, perPage, total), summary: { pendingCount } } };
   }
 
   private async find(id: number) {

@@ -29,10 +29,11 @@ describe('Admin Brands (e2e)', () => {
     brandId = createRes.body.data.id;
 
     const listRes = await request(app.getHttpServer())
-      .get('/api/v1/admin/brands')
+      .get('/api/v1/admin/brands?q=test-amd')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(listRes.body.data.some((b: { id: number }) => b.id === brandId)).toBe(true);
+    expect(listRes.body.meta.summary.total).toBeGreaterThanOrEqual(listRes.body.meta.total);
 
     const patchRes = await request(app.getHttpServer())
       .patch(`/api/v1/admin/brands/${brandId}`)

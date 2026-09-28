@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, ReturnStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { buildPaginationMeta, paginationSkipTake } from '../../../common/pagination';
+import { dateRange } from '../../../common/date-range';
 import { ApproveReturnDto } from './dto/approve-return.dto';
 import { ListDisputesQueryDto } from './dto/list-disputes-query.dto';
 import { ListReturnsQueryDto } from './dto/list-returns-query.dto';
@@ -18,6 +19,18 @@ import { orderRefundedEmail } from '../../email/email-templates';
 
 const returnInclude = { user: { select: { id: true, email: true, firstName: true, lastName: true } }, orderItem: { include: { order: true, product: true, productVariant: true } } };
 
+// What a payments row needs to link to the order and its customer (never the full order).
+const orderSummarySelect = { id: true, orderNumber: true, email: true, userId: true, user: { select: { id: true, firstName: true, lastName: true } } } as const;
+
+// "Jane Smith" should find the customer by first + last name, not only by either one.
+function customerNameMatch(q: string) {
+  const [first, ...rest] = q.split(/\s+/);
+  const last = rest.join(' ');
+  return last
+    ? [{ order: { user: { firstName: { contains: first, mode: 'insensitive' as const }, lastName: { contains: last, mode: 'insensitive' as const } } } }]
+    : [{ order: { user: { OR: [{ firstName: { contains: q, mode: 'insensitive' as const } }, { lastName: { contains: q, mode: 'insensitive' as const } }] } } }];
+}
+
 @Injectable()
 export class PaymentOperationsService {
   constructor(
@@ -28,11 +41,32 @@ export class PaymentOperationsService {
     private readonly paypalGateway: PaypalGatewayService,
   ) {}
   async listReturns(query: ListReturnsQueryDto) {
-    const page = query.page!; const perPage = query.perPage!; const where = query.status ? { returnStatus: query.status } : {};
-    const [items, total] = await Promise.all([
+    const page = query.page!; const perPage = query.perPage!;
+    const q = query.q?.trim();
+    const [first, ...rest] = q ? q.split(/\s+/) : [];
+    const where: Prisma.OrderItemReturnWhereInput = {
+      ...(query.status ? { returnStatus: query.status } : {}),
+      ...dateRange(query.dateFrom, query.dateTo),
+      ...(q ? { OR: [
+        { reason: { contains: q, mode: 'insensitive' } },
+        { orderItem: { order: { orderNumber: { contains: q, mode: 'insensitive' } } } },
+        { orderItem: { product: { title: { contains: q, mode: 'insensitive' } } } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
+        rest.length
+          ? { user: { firstName: { contains: first, mode: 'insensitive' }, lastName: { contains: rest.join(' '), mode: 'insensitive' } } }
+          : { user: { OR: [{ firstName: { contains: q, mode: 'insensitive' } }, { lastName: { contains: q, mode: 'insensitive' } }] } },
+      ] } : {}),
+    };
+    const [items, total, requested, refunded, pendingCount] = await Promise.all([
       this.prisma.orderItemReturn.findMany({ where, ...paginationSkipTake(page, perPage), include: returnInclude, orderBy: { createdAt: 'desc' } }),
       this.prisma.orderItemReturn.count({ where }),
-    ]); return { items, meta: buildPaginationMeta(page, perPage, total) };
+      // Requested = value of the returned lines, excluding rejected requests.
+      this.prisma.orderItem.aggregate({ _sum: { subtotal: true }, where: { returns: { some: { AND: [where, { returnStatus: { not: 'REJECTED' } }] } } } }),
+      this.prisma.orderItemReturn.aggregate({ _sum: { refundAmount: true }, _count: true, where: { AND: [where, { returnStatus: 'REFUNDED' }] } }),
+      this.prisma.orderItemReturn.count({ where: { returnStatus: 'REQUESTED' } }),
+    ]);
+    const summary = { requestedAmount: Number(requested._sum.subtotal ?? 0), refundedAmount: Number(refunded._sum.refundAmount ?? 0), refundedCount: refunded._count, pendingCount };
+    return { items, meta: { ...buildPaginationMeta(page, perPage, total), summary } };
   }
   private async findReturn(id: number) {
     const item = await this.prisma.orderItemReturn.findUnique({ where: { id }, include: returnInclude });
@@ -132,14 +166,49 @@ export class PaymentOperationsService {
     void this.emailService.send(to, email.subject, email.html);
   }
   async listTransactions(query: ListTransactionsQueryDto) {
-    const page = query.page!; const perPage = query.perPage!; const where = { ...(query.orderId ? { orderId: query.orderId } : {}), ...(query.status ? { status: query.status } : {}) };
-    const [items, total] = await Promise.all([this.prisma.paymentTransaction.findMany({ where, ...paginationSkipTake(page, perPage), include: { order: true, refunds: true, disputes: true }, orderBy: { createdAt: 'desc' } }), this.prisma.paymentTransaction.count({ where })]);
-    return { items, meta: buildPaginationMeta(page, perPage, total) };
+    const page = query.page!; const perPage = query.perPage!;
+    const q = query.q?.trim();
+    const where: Prisma.PaymentTransactionWhereInput = {
+      ...(query.orderId ? { orderId: query.orderId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.provider ? { provider: query.provider } : {}),
+      ...dateRange(query.dateFrom, query.dateTo),
+      ...(q ? { OR: [
+        { providerTransactionId: { contains: q, mode: 'insensitive' } },
+        { order: { orderNumber: { contains: q, mode: 'insensitive' } } },
+        { order: { email: { contains: q, mode: 'insensitive' } } },
+        ...customerNameMatch(q),
+      ] } : {}),
+    };
+    const [items, total, captured] = await Promise.all([
+      this.prisma.paymentTransaction.findMany({ where, ...paginationSkipTake(page, perPage), include: { order: { select: orderSummarySelect }, refunds: true, disputes: true }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.paymentTransaction.count({ where }),
+      // Totals across every page of the current filter, not just the rows on screen.
+      this.prisma.paymentTransaction.aggregate({ where: { AND: [where, { status: 'CAPTURED' }] }, _sum: { amount: true }, _count: { _all: true } }),
+    ]);
+    return { items, meta: { ...buildPaginationMeta(page, perPage, total), summary: { capturedAmount: Number(captured._sum.amount ?? 0), capturedCount: captured._count._all } } };
   }
   async listDisputes(query: ListDisputesQueryDto) {
-    const page = query.page!; const perPage = query.perPage!; const where = query.status ? { status: query.status } : {};
-    const [items, total] = await Promise.all([this.prisma.paymentDispute.findMany({ where, ...paginationSkipTake(page, perPage), include: { order: true, transaction: true }, orderBy: { createdAt: 'desc' } }), this.prisma.paymentDispute.count({ where })]);
-    return { items, meta: buildPaginationMeta(page, perPage, total) };
+    const page = query.page!; const perPage = query.perPage!;
+    const q = query.q?.trim();
+    const where: Prisma.PaymentDisputeWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...dateRange(query.dateFrom, query.dateTo),
+      ...(q ? { OR: [
+        { providerDisputeId: { contains: q, mode: 'insensitive' } },
+        { reasonCode: { contains: q, mode: 'insensitive' } },
+        { reasonDescription: { contains: q, mode: 'insensitive' } },
+        { order: { orderNumber: { contains: q, mode: 'insensitive' } } },
+        { order: { email: { contains: q, mode: 'insensitive' } } },
+        ...customerNameMatch(q),
+      ] } : {}),
+    };
+    const [items, total, open] = await Promise.all([
+      this.prisma.paymentDispute.findMany({ where, ...paginationSkipTake(page, perPage), include: { order: { select: orderSummarySelect }, transaction: true }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.paymentDispute.count({ where }),
+      this.prisma.paymentDispute.count({ where: { status: { in: ['WARNING', 'NEEDS_RESPONSE', 'UNDER_REVIEW'] } } }),
+    ]);
+    return { items, meta: { ...buildPaginationMeta(page, perPage, total), summary: { openCount: open } } };
   }
   async updateDispute(id: number, dto: UpdateDisputeDto) {
     if (!Object.keys(dto).length) throw new BadRequestException('Provide at least one field');

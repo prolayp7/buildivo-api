@@ -15,11 +15,21 @@ export class BundlesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListBundlesQueryDto) {
-    const page = query.page!; const perPage = query.perPage!;
+    const page = query.page!; const perPage = query.perPage!; const q = query.q?.trim(); const now = new Date();
+    const schedules: Record<NonNullable<ListBundlesQueryDto['schedule']>, Prisma.ProductBundleWhereInput> = {
+      LIVE: { AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: now } }] }, { OR: [{ endsAt: null }, { endsAt: { gte: now } }] }] },
+      SCHEDULED: { startsAt: { gt: now } },
+      EXPIRED: { endsAt: { lt: now } },
+    };
     const where: Prisma.ProductBundleWhereInput = {
       ...(query.includeDeleted ? {} : { deletedAt: null }),
-      ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
+      ...(q ? { OR: [
+        { title: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        { items: { some: { productVariant: { product: { title: { contains: q, mode: 'insensitive' } } } } } },
+      ] } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(query.schedule ? schedules[query.schedule] : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.productBundle.findMany({ where, ...paginationSkipTake(page, perPage), orderBy: { createdAt: 'desc' }, include: bundleInclude }),

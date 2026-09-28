@@ -68,5 +68,15 @@ describe('DIY guides, calculators and free-delivery threshold (e2e)', () => {
       const all = (await api(app).get('/api/v1/blog').query({ perPage: 100 }).expect(200)).body.data as { slug: string }[];
       expect(all.filter((post) => post.slug.startsWith(`zz-guide-${stamp}`))).toHaveLength(3);
     });
+
+    it('searches published guide titles and content without including ordinary posts', async () => {
+      const base = { content: '<p>Exterior keyword searchmarker</p>', status: 'PUBLISHED' as const, publishedAt: new Date() };
+      await prisma.blogPost.create({ data: { ...base, title: 'Searchable guide', slug: `zz-guide-${stamp}-search`, steps: [{ title: 'One' }] } });
+      await prisma.blogPost.create({ data: { ...base, title: 'Ordinary post', slug: `zz-guide-${stamp}-ordinary` } });
+
+      const res = await api(app).get('/api/v1/blog').query({ guides: 'true', search: 'searchmarker', perPage: 100 }).expect(200);
+      const ours = (res.body.data as { slug: string }[]).filter((post) => post.slug.startsWith(`zz-guide-${stamp}`));
+      expect(ours.map((post) => post.slug)).toEqual([`zz-guide-${stamp}-search`]);
+    });
   });
 });

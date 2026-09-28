@@ -4,21 +4,31 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { buildPaginationMeta, paginationSkipTake } from '../../../../common/pagination';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
+import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 
 @Injectable()
 export class BrandsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(page: number, perPage: number) {
-    const [items, total] = await Promise.all([
+  async list(query: ListBrandsQueryDto) {
+    const page = query.page!; const perPage = query.perPage!; const q = query.q?.trim();
+    const where: Prisma.BrandWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' } }, { slug: { contains: q, mode: 'insensitive' } }] } : {}),
+    };
+    const [items, total, all, enabled, productsAssigned] = await Promise.all([
       this.prisma.brand.findMany({
-        ...paginationSkipTake(page, perPage),
+        where, ...paginationSkipTake(page, perPage),
         orderBy: { title: 'asc' },
         include: { _count: { select: { products: true } } },
       }),
+      this.prisma.brand.count({ where }),
+      // Headline figures are store-wide, independent of the search.
       this.prisma.brand.count(),
+      this.prisma.brand.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.product.count({ where: { brandId: { not: null } } }),
     ]);
-    return { items, meta: buildPaginationMeta(page, perPage, total) };
+    return { items, meta: { ...buildPaginationMeta(page, perPage, total), summary: { total: all, enabled, productsAssigned } } };
   }
 
   async detail(id: number) {

@@ -14,7 +14,7 @@ import {
 import { AdminAuthGuard } from '../../../../common/admin/admin-auth.guard';
 import { PermissionsGuard } from '../../../../common/admin/permissions.guard';
 import { RequirePermissions } from '../../../../common/admin/permissions.decorator';
-import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { BrandsService } from './brands.service';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
@@ -26,8 +26,8 @@ export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Get()
-  list(@Query() query: PaginationQueryDto) {
-    return this.brandsService.list(query.page!, query.perPage!);
+  list(@Query() query: ListBrandsQueryDto) {
+    return this.brandsService.list(query);
   }
 
   @Get(':id')

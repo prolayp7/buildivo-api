@@ -27,7 +27,21 @@ export class AdminQuotesService {
   async find(id: number) {
     const item = await this.prisma.quoteRequest.findUnique({ where: { id }, include: quoteInclude });
     if (!item) throw new NotFoundException('Quote request not found');
-    return item;
+    // Product images live in the polymorphic media table; take each product's first image.
+    const productIds = [...new Set(item.items.map((line) => line.productVariant.product.id))];
+    const media = productIds.length
+      ? await this.prisma.media.findMany({
+          where: { ownerType: 'PRODUCT', ownerId: { in: productIds }, metadata: { path: ['mimeType'], string_starts_with: 'image/' } },
+          select: { ownerId: true, url: true, altText: true },
+          orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+        })
+      : [];
+    const imageByProduct = new Map<number, { url: string; altText: string | null }>();
+    for (const image of media) if (!imageByProduct.has(image.ownerId)) imageByProduct.set(image.ownerId, { url: image.url, altText: image.altText });
+    return {
+      ...item,
+      items: item.items.map((line) => ({ ...line, productVariant: { ...line.productVariant, product: { ...line.productVariant.product, image: imageByProduct.get(line.productVariant.product.id) ?? null } } })),
+    };
   }
 
   async respond(id: number, dto: RespondQuoteRequestDto) {
