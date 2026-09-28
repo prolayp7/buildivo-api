@@ -1593,6 +1593,9 @@ model BlogPost {
   metaTitle            String?       @map("meta_title")
   metaDescription      String?       @map("meta_description")
   focusKeyword         String?       @map("focus_keyword")
+  socialShareImage     String?       @map("social_share_image")
+  socialShareImageAlt  String?       @map("social_share_image_alt")
+  twitterCard          TwitterCardType @default(SUMMARY_LARGE_IMAGE) @map("twitter_card")
   // Ordered editor blocks: [{ id, type: "text"|"image"|"video", ... }]. `content` holds the compiled HTML of these.
   contentBlocks        Json?         @map("content_blocks")
   createdAt            DateTime      @default(now()) @map("created_at")

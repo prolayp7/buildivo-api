@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsJSON, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CatalogStatus, PageSchemaType, TwitterCardType } from '@prisma/client';
 import { IsEnum } from 'class-validator';
@@ -69,7 +69,7 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @MaxLength(70)
   metaTitle?: string;
 
   @IsOptional()
@@ -79,11 +79,12 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(320)
   metaDescription?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @MaxLength(70)
   ogTitle?: string;
 
   @IsOptional()
@@ -97,11 +98,12 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(320)
   ogDescription?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @MaxLength(70)
   twitterTitle?: string;
 
   @IsOptional()
@@ -114,6 +116,7 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(320)
   twitterDescription?: string;
 
   @IsOptional()
@@ -122,10 +125,12 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
+  @IsJSON()
   customSchema?: string;
 
   @IsOptional()
   @IsString()
+  @IsJSON()
   faqSchema?: string;
 
   @IsOptional()

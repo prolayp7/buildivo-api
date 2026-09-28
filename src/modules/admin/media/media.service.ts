@@ -64,6 +64,13 @@ function resolveBucket(ownerType: MediaOwnerType, collection: string): string {
     const written: string[] = [];
     try {
       const isProductAsset = dto.ownerType === 'PRODUCT' && dto.collection === 'products';
+      const isProjectKitAsset = dto.ownerType === 'LIBRARY' && dto.collection === 'project-kits';
+      if (isProjectKitAsset) {
+        if (!new Set(['image/jpeg', 'image/png', 'image/webp']).has(file.mimetype)) throw new BadRequestException('Project kit banners must be JPG, PNG or WebP files');
+        if (file.size > 1024 * 1024) throw new BadRequestException('Project kit banners must be 1 MB or smaller');
+        const dimensions = await sharp(file.path).metadata();
+        if (dimensions.width !== 512 || dimensions.height !== 279) throw new BadRequestException('Project kit banners must be exactly 512 x 279 pixels');
+      }
       if (isProductAsset || (dto.ownerType === 'LIBRARY' && dto.collection.startsWith('branding-'))) {
         const allowedProductImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
         const allowedProductVideoTypes = new Set(['video/mp4', 'video/webm']);
