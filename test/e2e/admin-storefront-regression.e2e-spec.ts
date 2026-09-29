@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { createTestApp, registerAndVerify } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { createReturn, inspectReturn } from './helpers/returns';
 import { registerAndVerify as registerCustomer } from './setup';
 
 describe('Storefront order visible and manageable in admin (e2e)', () => {
@@ -123,30 +124,19 @@ describe('Storefront order visible and manageable in admin (e2e)', () => {
         status: 'CAPTURED',
       },
     });
-    const orderItem = order.items[0];
-    const returnRequest = await prisma.orderItemReturn.create({
-      data: { orderItemId: orderItem.id, userId: order.userId!, reason: 'Changed my mind' },
-    });
-
-    await request(app.getHttpServer())
-      .patch(`/api/v1/admin/returns/${returnRequest.id}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({})
-      .expect(200);
-
-    await request(app.getHttpServer())
-      .patch(`/api/v1/admin/returns/${returnRequest.id}/receive`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
+    const ret = await createReturn(prisma, order.id);
+    await inspectReturn(app, adminToken, ret);
 
     const refundRes = await request(app.getHttpServer())
-      .post(`/api/v1/admin/returns/${returnRequest.id}/refund`)
+      .post(`/api/v1/admin/returns/${ret.returnId}/refund`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ refundAmount: Number(orderItem.subtotal) })
       .expect(201);
 
-    expect(refundRes.body.data.returnRequest.returnStatus).toBe('REFUNDED');
-    expect(Number(refundRes.body.data.refund.amount)).toBeCloseTo(Number(orderItem.subtotal), 2);
+    // Offline provider: recorded locally, so the return completes straight away.
+    expect(refundRes.body.data.status).toBe('COMPLETED');
+    const lineNet = Number(ret.orderItem.subtotal) - (Number(order.discountTotal) * Number(ret.orderItem.subtotal)) / Number(order.subtotal);
+    expect(refundRes.body.data.refunds[0].amount).toBeCloseTo(lineNet + (order.items.length === 1 ? Number(order.shippingCharge) : 0), 2);
+    expect(refundRes.body.data.refunds[0].status).toBe('PROCESSED');
   });
 
   it('does not leak this order to another customer', async () => {

@@ -29,3 +29,5 @@ lerna-debug.log*
 # milvus
 *.md
 !README.md
+# Private return evidence / inspection photos (never public)
+/private-uploads

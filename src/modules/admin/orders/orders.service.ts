@@ -42,7 +42,7 @@ export class OrdersService {
       this.prisma.order.count({ where: { status: 'DELIVERED' } }),
       this.prisma.order.count({ where: { status: 'CANCELLED' } }),
       this.prisma.order.count({ where: { status: 'FAILED' } }),
-      this.prisma.orderItemReturn.count(),
+      this.prisma.returnRequest.count({ where: { status: { notIn: ['RETURN_REJECTED', 'CANCELLED'] } } }),
     ]);
     return {
       totalOrders,

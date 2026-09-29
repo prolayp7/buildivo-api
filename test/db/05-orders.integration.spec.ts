@@ -50,7 +50,7 @@ describe('Orders & Fulfillment', () => {
   afterAll(async () => {
     if (orderItemId) {
       await prisma.review.deleteMany({ where: { orderItemId } });
-      await prisma.orderItemReturn.deleteMany({ where: { orderItemId } });
+      await prisma.returnRequest.deleteMany({ where: { items: { some: { orderItemId } } } });
     }
     if (orderId) {
       await prisma.orderStatusHistory.deleteMany({ where: { orderId } });
@@ -109,10 +109,16 @@ describe('Orders & Fulfillment', () => {
     expect(order.items).toHaveLength(1);
     expect(order.statusHistory).toHaveLength(1);
 
-    const orderReturn = await prisma.orderItemReturn.create({
-      data: { orderItemId, userId, reason: 'Changed my mind' },
+    const orderReturn = await prisma.returnRequest.create({
+      data: {
+        returnNumber: `RET-DBTEST-${orderId}`, orderId, userId,
+        pickupFullName: 'Order Tester', pickupLine1: '1 Test Street', pickupCity: 'London', pickupPostcode: 'SW1A 1AA',
+        items: { create: { orderItemId, quantity: 1, reason: 'CHANGED_MIND' } },
+      },
+      include: { items: true },
     });
-    expect(orderReturn.returnStatus).toBe('REQUESTED');
+    expect(orderReturn.status).toBe('RETURN_REQUESTED');
+    expect(orderReturn.items[0].quantity).toBe(1);
 
     const review = await prisma.review.create({
       data: { productId, orderItemId, orderId, userId, rating: 5, comment: 'Great product' },

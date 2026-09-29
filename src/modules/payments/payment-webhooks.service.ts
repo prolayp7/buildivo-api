@@ -5,13 +5,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../admin/settings/settings.service';
 import { PaymentAttemptsService } from './payment-attempts.service';
 import { PaypalGatewayService } from './paypal-gateway.service';
+import { RefundSettlementService, refundOutcome } from '../returns/refund-settlement.service';
 
 const SIGNATURE_TOLERANCE_SECONDS = 300;
 
 interface StripeEvent {
   id: string;
   type: string;
-  data?: { object?: { id?: string } };
+  data?: { object?: { id?: string; status?: string | null; failure_reason?: string | null } };
 }
 
 interface PaypalEvent {
@@ -27,6 +28,7 @@ export class PaymentWebhooksService {
     private readonly settings: SettingsService,
     private readonly paypalGateway: PaypalGatewayService,
     private readonly attempts: PaymentAttemptsService,
+    private readonly refunds: RefundSettlementService,
   ) {}
 
   private verifyStripeSignature(rawBody: Buffer, header: string, secret: string): boolean {
@@ -103,8 +105,16 @@ export class PaymentWebhooksService {
   // idempotency/audit) and otherwise ignored. Extend here as new event types
   // are actually wired to a caller-side flow.
   private async applyEvent(event: StripeEvent): Promise<void> {
-    const providerObjectId = event.data?.object?.id;
-    if (!providerObjectId) return;
+    const object = event.data?.object;
+    const providerObjectId = object?.id;
+    if (!object || !providerObjectId) return;
+
+    // Refund confirmations: the only way a "pending" refund becomes successful (or failed).
+    if (event.type === 'refund.updated' || event.type === 'charge.refund.updated' || event.type === 'refund.failed') {
+      const outcome = event.type === 'refund.failed' ? 'FAILED' : refundOutcome(object.status);
+      if (outcome !== 'PROCESSING') await this.settleRefund(providerObjectId, outcome, event, object.failure_reason ?? null);
+      return;
+    }
 
     const succeeded = event.type === 'payment_intent.succeeded' || event.type === 'checkout.session.completed';
     const failed = event.type === 'payment_intent.payment_failed';
@@ -196,6 +206,13 @@ export class PaymentWebhooksService {
   // shared with the direct capture endpoint via PaymentAttemptsService, so
   // whichever of the two fires first wins and the other is a no-op.
   private async applyPaypalEvent(event: PaypalEvent): Promise<void> {
+    // Refund confirmations: PAYMENT.CAPTURE.REFUNDED carries the refund object (id + status).
+    if (event.event_type === 'PAYMENT.CAPTURE.REFUNDED') {
+      const resource = event.resource ?? {};
+      const outcome = refundOutcome(typeof resource.status === 'string' ? resource.status : 'COMPLETED');
+      if (typeof resource.id === 'string' && outcome !== 'PROCESSING') await this.settleRefund(resource.id, outcome, event, null);
+      return;
+    }
     const completed = event.event_type === 'PAYMENT.CAPTURE.COMPLETED';
     const denied = event.event_type === 'PAYMENT.CAPTURE.DENIED';
     if (!completed && !denied) return;
@@ -213,5 +230,11 @@ export class PaymentWebhooksService {
       attempt.id,
       completed ? { captured: true, providerTransactionId: captureId ?? paypalOrderId } : { captured: false },
     );
+  }
+
+  private async settleRefund(providerRefundId: string, outcome: 'PROCESSED' | 'FAILED', event: unknown, failureReason: string | null): Promise<void> {
+    const refund = await this.prisma.paymentRefund.findFirst({ where: { providerRefundId }, select: { id: true } });
+    if (!refund) return;
+    await this.refunds.settle(refund.id, outcome, { payload: event, failureReason, actor: { type: 'SYSTEM' } });
   }
 }

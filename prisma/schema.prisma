@@ -90,7 +90,7 @@ model User {
   browsingHistory  BrowsingHistory[]
   orders           Order[]
   reviews          Review[]
-  orderItemReturns OrderItemReturn[]
+  returnRequests   ReturnRequest[]
   giftCards        GiftCard[]
   refreshTokens    CustomerRefreshToken[]
   quoteRequests    QuoteRequest[]
@@ -752,6 +752,9 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   FAILED
+  // Order-item-level returns: some units returned vs. every unit returned (see ReturnRequest).
+  PARTIALLY_RETURNED
+  RETURNED
 }
 
 enum PaymentStatus {
@@ -773,18 +776,52 @@ enum OrderItemStatus {
   REFUNDED
 }
 
-enum ReturnStatus {
-  REQUESTED
-  APPROVED
-  REJECTED
-  RECEIVED
-  REFUNDED
+// Return request lifecycle (docs: ecom refund flow). Order, return and refund statuses are separate.
+enum ReturnRequestStatus {
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURN_REJECTED
+  PICKUP_SCHEDULED
+  PICKED_UP
+  RETURN_RECEIVED
+  INSPECTION
+  REFUND_APPROVED
+  REFUND_PROCESSING
+  COMPLETED
+  CANCELLED
 }
 
-enum PickupStatus {
-  PENDING
-  SCHEDULED
-  PICKED_UP
+enum ReturnReason {
+  DAMAGED
+  DEFECTIVE
+  WRONG_ITEM
+  MISSING_PARTS
+  NOT_AS_DESCRIBED
+  POOR_CONDITION
+  // UK Consumer Contracts Regulations: customers may cancel within 14 days without giving a fault.
+  CHANGED_MIND
+  OTHER
+}
+
+enum ReturnItemCondition {
+  NEW
+  OPENED
+  USED
+  DAMAGED
+  DEFECTIVE
+  MISSING_PARTS
+}
+
+enum ReturnInspectionResult {
+  ACCEPTED
+  PARTIALLY_ACCEPTED
+  REJECTED
+}
+
+// Customer evidence and admin inspection photos are kept strictly apart.
+enum ReturnImageType {
+  CUSTOMER_EVIDENCE
+  ADMIN_INSPECTION
 }
 
 enum ShippingRateType {
@@ -900,6 +937,7 @@ model Order {
   paymentTransactions  PaymentTransaction[]
   paymentAttempts      PaymentAttempt[]
   paymentRefunds       PaymentRefund[]
+  returnRequests       ReturnRequest[]
   paymentDisputes      PaymentDispute[]
   shipments            Shipment[]
   couponLine           OrderCouponLine?
@@ -934,8 +972,8 @@ model OrderItem {
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
-  returns OrderItemReturn[]
-  review  Review?
+  returnItems ReturnItem[]
+  review      Review?
 
   @@index([orderId])
   @@index([productId])
@@ -959,26 +997,118 @@ model OrderStatusHistory {
   @@map("order_status_history")
 }
 
-model OrderItemReturn {
-  id           Int           @id @default(autoincrement())
-  orderItemId  Int           @map("order_item_id")
-  orderItem    OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  userId       Int           @map("user_id")
-  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  reason       String
-  comment      String?
-  refundAmount Decimal?      @map("refund_amount") @db.Decimal(10, 2)
-  returnStatus ReturnStatus  @default(REQUESTED) @map("return_status")
-  pickupStatus PickupStatus? @map("pickup_status")
-  approvedAt   DateTime?     @map("approved_at")
-  receivedAt   DateTime?     @map("received_at")
-  refundedAt   DateTime?     @map("refunded_at")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+// One customer request to return some units of some items of one order. An order can have many.
+model ReturnRequest {
+  id           Int                 @id @default(autoincrement())
+  returnNumber String              @unique @map("return_number")
+  orderId      Int                 @map("order_id")
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  userId       Int                 @map("user_id")
+  user         User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status       ReturnRequestStatus @default(RETURN_REQUESTED)
 
-  @@index([orderItemId])
+  // Pickup address snapshot: the order's delivery address or one of the customer's saved addresses.
+  pickupFullName String  @map("pickup_full_name")
+  pickupLine1    String  @map("pickup_line1")
+  pickupLine2    String? @map("pickup_line2")
+  pickupCity     String  @map("pickup_city")
+  pickupCounty   String? @map("pickup_county")
+  pickupPostcode String  @map("pickup_postcode")
+  pickupPhone    String? @map("pickup_phone")
+
+  // Pickup booking (entered by admin; no courier integration yet).
+  courier        String?   @map("courier")
+  pickupDate     DateTime? @map("pickup_date") @db.Date
+  pickupWindow   String?   @map("pickup_window")
+  trackingNumber String?   @map("tracking_number")
+  pickupNotes    String?   @map("pickup_notes")
+
+  rejectionReason String? @map("rejection_reason")
+  // Delivery charge refunded with this return (only when it completes the return of the whole order).
+  shippingRefund  Decimal @default(0) @map("shipping_refund") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items   ReturnItem[]
+  events  ReturnEvent[]
+  refunds PaymentRefund[]
+
+  @@index([orderId])
   @@index([userId])
-  @@map("order_item_returns")
+  @@index([status])
+  @@map("return_requests")
+}
+
+// One order item within a return request, with its own quantity, reason and inspection outcome.
+model ReturnItem {
+  id              Int           @id @default(autoincrement())
+  returnRequestId Int           @map("return_request_id")
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItemId     Int           @map("order_item_id")
+  orderItem       OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+
+  quantity    Int
+  reason      ReturnReason
+  reasonOther String?      @map("reason_other")
+  description String?
+
+  // Stored separately at each stage: requested (quantity) -> approved -> received -> accepted.
+  approvedQuantity Int? @map("approved_quantity")
+  receivedQuantity Int? @map("received_quantity")
+  acceptedQuantity Int? @map("accepted_quantity")
+
+  condition                 ReturnItemCondition?    @map("condition")
+  accessoriesPresent        Boolean?                @map("accessories_present")
+  inspectionNotes           String?                 @map("inspection_notes")
+  inspectionResult          ReturnInspectionResult? @map("inspection_result")
+  inspectionRejectionReason String?                 @map("inspection_rejection_reason")
+
+  // Calculated by the backend from the original order (never from client input), less any deduction.
+  refundAmount    Decimal? @map("refund_amount") @db.Decimal(10, 2)
+  deductionAmount Decimal  @default(0) @map("deduction_amount") @db.Decimal(10, 2)
+  deductionReason String?  @map("deduction_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  images ReturnItemImage[]
+
+  @@index([returnRequestId])
+  @@index([orderItemId])
+  @@map("return_items")
+}
+
+// Private files (outside the public uploads folder), served only to the owner and admins.
+model ReturnItemImage {
+  id                Int             @id @default(autoincrement())
+  returnItemId      Int             @map("return_item_id")
+  returnItem        ReturnItem      @relation(fields: [returnItemId], references: [id], onDelete: Cascade)
+  type              ReturnImageType
+  storageKey        String          @unique @map("storage_key")
+  mimeType          String          @map("mime_type")
+  sizeBytes         Int             @map("size_bytes")
+  uploadedByAdminId Int?            @map("uploaded_by_admin_id")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@index([returnItemId, type])
+  @@map("return_item_images")
+}
+
+// Timeline and audit trail of a return: every status change and important action.
+model ReturnEvent {
+  id              Int                  @id @default(autoincrement())
+  returnRequestId Int                  @map("return_request_id")
+  returnRequest   ReturnRequest        @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  status          ReturnRequestStatus?
+  action          String
+  note            String?
+  actorType       String               @map("actor_type")
+  actorId         Int?                 @map("actor_id")
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  @@index([returnRequestId])
+  @@map("return_events")
 }
 
 model NewsletterSubscriber {
@@ -1092,8 +1222,12 @@ model PaymentStateHistory {
 
 enum RefundStatus {
   PENDING
+  // Sent to the provider, awaiting its confirmation (e.g. Stripe "pending"), settled by webhook.
+  PROCESSING
+  // Confirmed by the payment provider - the only state that counts as refunded.
   PROCESSED
   FAILED
+  CANCELLED
 }
 
 enum DisputeStatus {
@@ -1139,12 +1273,18 @@ model PaymentRefund {
   providerRefundId String?            @map("provider_refund_id")
   status           RefundStatus       @default(PENDING)
   reason           String?
+  returnRequestId  Int?               @map("return_request_id")
+  returnRequest    ReturnRequest?     @relation(fields: [returnRequestId], references: [id], onDelete: SetNull)
+  attempt          Int                @default(1)
+  failureReason    String?            @map("failure_reason")
+  processedAt      DateTime?          @map("processed_at")
   rawPayload       Json?              @map("raw_payload")
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
 
   @@index([transactionId])
   @@index([orderId])
+  @@index([returnRequestId])
   @@map("payment_refunds")
 }
 

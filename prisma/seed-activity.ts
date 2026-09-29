@@ -251,7 +251,7 @@ export async function seedActivity(prisma: PrismaClient) {
         updatedAt: placedAt,
         items: { create: itemsData },
       },
-      select: { id: true, items: { select: { id: true } } },
+      select: { id: true, shippingFullName: true, shippingLine1: true, shippingLine2: true, shippingCity: true, shippingCounty: true, shippingPostcode: true, shippingPhone: true, items: { select: { id: true } } },
     });
 
     if (applyCoupon) {
@@ -368,15 +368,22 @@ export async function seedActivity(prisma: PrismaClient) {
     // A handful of returns on delivered orders.
     if (status === 'DELIVERED' && userId && maybe(0.08)) {
       const targetItem = pick(order.items);
-      await prisma.orderItemReturn.create({
+      const status = pick(['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_REJECTED'] as const);
+      const created = laterThan(historyTime, 72);
+      const ret = await prisma.returnRequest.create({
         data: {
-          orderItemId: targetItem.id,
+          returnNumber: `TMP-${order.id}`,
+          orderId: order.id,
           userId,
-          reason: pick(['Item not as described', 'No longer needed', 'Faulty on arrival', 'Ordered wrong size']),
-          returnStatus: pick(['REQUESTED', 'APPROVED', 'RECEIVED', 'REFUNDED']),
-          createdAt: laterThan(historyTime, 72),
+          status,
+          pickupFullName: order.shippingFullName, pickupLine1: order.shippingLine1, pickupLine2: order.shippingLine2, pickupCity: order.shippingCity, pickupCounty: order.shippingCounty, pickupPostcode: order.shippingPostcode, pickupPhone: order.shippingPhone,
+          rejectionReason: status === 'RETURN_REJECTED' ? 'Outside the condition described in our returns policy' : null,
+          createdAt: created,
+          items: { create: { orderItemId: targetItem.id, quantity: 1, approvedQuantity: status === 'RETURN_APPROVED' ? 1 : null, reason: pick(['NOT_AS_DESCRIBED', 'CHANGED_MIND', 'DEFECTIVE', 'WRONG_ITEM'] as const) } },
+          events: { create: { status: 'RETURN_REQUESTED', action: 'return.requested', actorType: 'CUSTOMER', actorId: userId, createdAt: created } },
         },
       });
+      await prisma.returnRequest.update({ where: { id: ret.id }, data: { returnNumber: `RET-${10000 + ret.id}` } });
     }
 
     // Reviews on ~40% of delivered orders' items.

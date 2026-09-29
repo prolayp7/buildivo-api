@@ -3,6 +3,8 @@ import * as request from 'supertest';
 import { createTestApp } from './setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginAsSuperAdmin } from './helpers/admin-auth';
+import { createReturn, inspectReturn } from './helpers/returns';
+import { RefundSettlementService } from '../../src/modules/returns/refund-settlement.service';
 import { registerAndVerify as registerCustomer } from './setup';
 import { PaymentReconciliationService } from '../../src/modules/payments/payment-reconciliation.service';
 
@@ -77,32 +79,49 @@ describe('Payment integrity: invoices, reconciliation, provider refunds, audit (
     const { order } = await orderWithStripeAttempt();
     const row = await prisma.order.findUniqueOrThrow({ where: { uuid: order.uuid }, include: { items: true } });
     await prisma.paymentTransaction.create({ data: { orderId: row.id, provider, providerTransactionId: `pi_refund_${row.id}`, amount: row.total, currency: 'GBP', status: 'CAPTURED' } });
-    const ret = await prisma.orderItemReturn.create({ data: { orderItemId: row.items[0].id, userId: row.userId!, reason: 'x' } });
-    await request(app.getHttpServer()).patch(`/api/v1/admin/returns/${ret.id}/approve`).set('Authorization', `Bearer ${adminToken}`).send({}).expect(200);
-    await request(app.getHttpServer()).patch(`/api/v1/admin/returns/${ret.id}/receive`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    const ret = await createReturn(prisma, row.id);
+    await inspectReturn(app, adminToken, ret);
     return { row, ret };
   };
 
   it('a refund is sent to Stripe with an idempotency key and recorded with the provider refund id', async () => {
     const { row, ret } = await paidOrderWithReturn('STRIPE');
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(json({ id: 're_test_1', status: 'succeeded' }));
-    const res = await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.id}/refund`).set('Authorization', `Bearer ${adminToken}`)
-      .send({ refundAmount: Number(row.items[0].subtotal) }).expect(201);
+    const res = await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.returnId}/refund`).set('Authorization', `Bearer ${adminToken}`).expect(201);
+    const refund = await prisma.paymentRefund.findFirstOrThrow({ where: { returnRequestId: ret.returnId } });
     const call = spy.mock.calls.find(([url]) => String(url) === 'https://api.stripe.com/v1/refunds')!;
-    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toBe(`refund-${res.body.data.refund.id}`);
+    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toBe(`refund-${refund.id}`);
     expect(String(call[1]!.body)).toContain(`payment_intent=pi_refund_${row.id}`);
-    expect(res.body.data.refund.providerRefundId).toBe('re_test_1');
+    expect(refund.providerRefundId).toBe('re_test_1');
+    expect(refund.status).toBe('PROCESSED');
+    expect(res.body.data.status).toBe('COMPLETED');
     expect((await prisma.order.findUniqueOrThrow({ where: { id: row.id } })).paymentStatus).toMatch(/REFUNDED/);
-    expect(await prisma.auditLog.count({ where: { action: 'refund.processed', entityId: String(res.body.data.refund.id), actorType: 'ADMIN' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { action: 'refund.processed', entityId: String(refund.id), actorType: 'ADMIN' } })).toBe(1);
+  });
+
+  it('a refund the provider reports as pending stays processing until the webhook confirms it', async () => {
+    const { ret } = await paidOrderWithReturn('STRIPE');
+    jest.spyOn(global, 'fetch').mockResolvedValue(json({ id: 're_pending_1', status: 'pending' }));
+    const res = await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.returnId}/refund`).set('Authorization', `Bearer ${adminToken}`).expect(201);
+    expect(res.body.data.status).toBe('REFUND_PROCESSING');
+    const refund = await prisma.paymentRefund.findFirstOrThrow({ where: { returnRequestId: ret.returnId } });
+    expect(refund.status).toBe('PROCESSING');
+    await app.get(RefundSettlementService).settle(refund.id, 'PROCESSED', { actor: { type: 'SYSTEM' } });
+    expect((await prisma.returnRequest.findUniqueOrThrow({ where: { id: ret.returnId } })).status).toBe('COMPLETED');
   });
 
   it('when the provider rejects the refund nothing is marked refunded', async () => {
     const { row, ret } = await paidOrderWithReturn('STRIPE');
     jest.spyOn(global, 'fetch').mockResolvedValue(json({ error: { message: 'nope' } }, 400));
-    await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.id}/refund`).set('Authorization', `Bearer ${adminToken}`)
-      .send({ refundAmount: Number(row.items[0].subtotal) }).expect(502);
-    expect((await prisma.orderItemReturn.findUniqueOrThrow({ where: { id: ret.id } })).returnStatus).toBe('RECEIVED');
+    await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.returnId}/refund`).set('Authorization', `Bearer ${adminToken}`).expect(201);
+    // Back to "refund approved" with the failure recorded, so the admin can retry.
+    expect((await prisma.returnRequest.findUniqueOrThrow({ where: { id: ret.returnId } })).status).toBe('REFUND_APPROVED');
     expect((await prisma.paymentRefund.findFirstOrThrow({ where: { orderId: row.id } })).status).toBe('FAILED');
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: row.id } })).paymentStatus).not.toMatch(/REFUNDED/);
+    jest.spyOn(global, 'fetch').mockResolvedValue(json({ id: 're_retry_1', status: 'succeeded' }));
+    const retried = await request(app.getHttpServer()).post(`/api/v1/admin/returns/${ret.returnId}/refund/retry`).set('Authorization', `Bearer ${adminToken}`).expect(201);
+    expect(retried.body.data.status).toBe('COMPLETED');
+    expect(await prisma.paymentRefund.count({ where: { returnRequestId: ret.returnId, status: 'PROCESSED', attempt: 2 } })).toBe(1);
   });
 
   it('every response carries an X-Request-Id, and an incoming one is honoured', async () => {

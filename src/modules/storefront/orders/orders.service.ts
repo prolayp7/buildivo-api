@@ -22,7 +22,7 @@ const CANCELLABLE_STATUSES = ['PENDING', 'AWAITING_PAYMENT', 'PROCESSING'];
 
 const orderDetailInclude = {
   invoice: true,
-  items: { include: { returns: { select: { id: true, returnStatus: true } } } },
+  items: { include: { returnItems: { select: { quantity: true, approvedQuantity: true, receivedQuantity: true, acceptedQuantity: true, inspectionResult: true, returnRequest: { select: { returnNumber: true, status: true } } } } } },
   shippingMethod: { select: { id: true, title: true, carrier: true } },
   shipments: { include: { events: { orderBy: { occurredAt: 'desc' as const } } } },
   statusHistory: { orderBy: { createdAt: 'asc' as const } },
@@ -254,7 +254,7 @@ export class OrdersService {
         where,
         ...paginationSkipTake(page, perPage),
         orderBy: { placedAt: 'desc' },
-        include: { items: { include: { returns: { select: { id: true, returnStatus: true } } } } },
+        include: { items: { include: { returnItems: { select: { quantity: true, returnRequest: { select: { returnNumber: true, status: true } } } } } } },
       }),
       this.prisma.order.count({ where }),
     ]);

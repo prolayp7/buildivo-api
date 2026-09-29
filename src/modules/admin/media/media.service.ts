@@ -37,7 +37,7 @@ function resolveBucket(ownerType: MediaOwnerType, collection: string): string {
       case 'HERO_SLIDE': return this.prisma.heroSlide.findUnique({ where: { id }, select: { id: true } });
       case 'USER': return this.prisma.user.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
       case 'REVIEW': return this.prisma.review.findUnique({ where: { id }, select: { id: true } });
-      case 'ORDER_ITEM_RETURN': return this.prisma.orderItemReturn.findUnique({ where: { id }, select: { id: true } });
+      case 'ORDER_ITEM_RETURN': return this.prisma.returnItem.findUnique({ where: { id }, select: { id: true } });
     }
   }
   async list(query: ListMediaQueryDto) {

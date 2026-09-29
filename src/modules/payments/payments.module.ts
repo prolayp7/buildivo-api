@@ -8,9 +8,10 @@ import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaypalGatewayService } from './paypal-gateway.service';
 import { StripeGatewayService } from './stripe-gateway.service';
 import { SettingsModule } from '../admin/settings/settings.module';
+import { ReturnsCoreModule } from '../returns/returns-core.module';
 
 @Module({
-  imports: [SettingsModule],
+  imports: [SettingsModule, ReturnsCoreModule],
   controllers: [PaymentsController, PaymentWebhooksController],
   providers: [PaymentAttemptsService, PaymentStateService, PaypalGatewayService, StripeGatewayService, PaymentWebhooksService, PaymentReconciliationService],
   exports: [PaymentAttemptsService, PaymentStateService, StripeGatewayService, PaypalGatewayService],

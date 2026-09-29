@@ -1,9 +1,4 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  NestInterceptor,
-} from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor, StreamableFile } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -23,6 +18,10 @@ export class ResponseInterceptor implements NestInterceptor {
       map((result: unknown) => {
         if (result === undefined) {
           return undefined;
+        }
+        // Files (e.g. private return photos) are streamed as-is, never wrapped in JSON.
+        if (result instanceof StreamableFile) {
+          return result;
         }
         if (isPaginatedResult(result)) {
           return { data: result.items, meta: result.meta };
