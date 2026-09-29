@@ -314,6 +314,24 @@ export function welcomeEmail(params: { firstName: string; products?: EmailItem[]
   return { subject: 'Welcome to Buildivo', html: shell('Welcome to Buildivo', "Your account is ready — here's what you get.", body) };
 }
 
+export function accountDeletionRequestReceivedEmail(params: { firstName: string }) {
+  let body = contentOpen();
+  body += badge('Request received', C.blueSoft, C.blueDark);
+  body += h1(`We&rsquo;ve received your request, ${esc(params.firstName)}`);
+  body += p('Your account has not been deleted. Our team will review your request and email you again when the deletion is complete.');
+  body += contentClose();
+  return { subject: 'We received your account deletion request', html: shell('Account deletion request received', 'We received your request to delete your Buildivo account.', body) };
+}
+
+export function accountDeletedEmail(params: { firstName: string }) {
+  let body = contentOpen();
+  body += badge('Account deleted', C.greenSoft, C.green);
+  body += h1(`Your account has been deleted, ${esc(params.firstName)}`);
+  body += p('This confirms that your Buildivo customer account has been deleted.');
+  body += contentClose();
+  return { subject: 'Your Buildivo account has been deleted', html: shell('Your account has been deleted', 'This confirms your Buildivo account has been deleted.', body) };
+}
+
 export function emailVerificationEmail(params: { code: string }) {
   let body = contentOpen();
   body += h1('Confirm your email address');

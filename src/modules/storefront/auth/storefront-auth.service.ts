@@ -9,7 +9,7 @@ import { RegisterDto } from './dto/register.dto';
 import { OtpPurpose } from './dto/otp.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { EmailService } from '../../email/email.service';
-import { emailVerificationEmail, passwordResetEmail, welcomeEmail } from '../../email/email-templates';
+import { accountDeletionRequestReceivedEmail, emailVerificationEmail, passwordResetEmail, welcomeEmail } from '../../email/email-templates';
 import { StorefrontProductsService } from '../catalog/products/storefront-products.service';
 
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -123,6 +123,25 @@ export class StorefrontAuthService {
       customer: toAuthenticatedCustomer(user),
       ...(process.env.NODE_ENV !== 'production' ? { otp } : {}),
     };
+  }
+
+  async deletionRequestFor(userId: number) {
+    return this.prisma.customerDeletionRequest.findFirst({
+      where: { userId, status: 'PENDING' },
+      orderBy: { requestedAt: 'desc' },
+      select: { id: true, status: true, requestedAt: true },
+    });
+  }
+
+  async requestAccountDeletion(userId: number) {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { email: true, firstName: true } });
+    if (!user) throw new UnauthorizedException('Account not found');
+    const existing = await this.deletionRequestFor(userId);
+    if (existing) return { request: existing, alreadyRequested: true, emailSent: null };
+    const request = await this.prisma.customerDeletionRequest.create({ data: { userId }, select: { id: true, status: true, requestedAt: true } });
+    const email = accountDeletionRequestReceivedEmail({ firstName: user.firstName });
+    const emailSent = await this.emailService.send(user.email, email.subject, email.html);
+    return { request, alreadyRequested: false, emailSent };
   }
 
   async login(email: string, password: string): Promise<TokenPair & { customer: AuthenticatedCustomer }> {
