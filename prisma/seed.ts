@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { seedHomepageContent } from './seed-homepage-content';
 import * as bcrypt from 'bcrypt';
 import { seedProducts } from './seed-products';
 import { seedActivity } from './seed-activity';
@@ -425,6 +426,9 @@ async function main() {
       },
     });
   }
+
+  // Homepage copy/links still hardcoded in the storefront, and project kit -> bundle links.
+  for (const note of await seedHomepageContent(prisma)) console.log(note);
 
   // Blog & static CMS pages - demo content for the storefront's content pages.
   const blogCategory = await prisma.blogCategory.upsert({
