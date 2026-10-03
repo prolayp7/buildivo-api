@@ -413,27 +413,43 @@ export class StorefrontProductsService {
       select: { id: true, compatibility: true },
     });
     if (!source) throw new NotFoundException('Product not found');
-    if (!source.compatibility) return [];
+    const limit = query.limit ?? 4;
+    const explicitLinks = await this.prisma.productCompatibilityLink.findMany({
+      where: { productId: source.id },
+      select: { compatibleProductId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const matchingIds = explicitLinks.map((link) => link.compatibleProductId);
 
-    const candidates = await this.prisma.product.findMany({
+    if (source.compatibility) {
+      const candidates = await this.prisma.product.findMany({
+        where: {
+          status: 'ACTIVE',
+          deletedAt: null,
+          id: { notIn: [source.id, ...matchingIds] },
+          compatibility: { isNot: null },
+          ...(query.category ? { category: { slug: query.category } } : {}),
+        },
+        select: { id: true, compatibility: true },
+        take: 300,
+      });
+      matchingIds.push(...candidates.filter((candidate) => isCompatible(source.compatibility!, candidate.compatibility!)).map((candidate) => candidate.id));
+    }
+
+    if (!matchingIds.length) return [];
+    const eligibleProducts = await this.prisma.product.findMany({
       where: {
+        id: { in: matchingIds },
         status: 'ACTIVE',
         deletedAt: null,
-        id: { not: source.id },
-        compatibility: { isNot: null },
         ...(query.category ? { category: { slug: query.category } } : {}),
       },
-      select: { id: true, compatibility: true },
-      take: 300,
+      select: { id: true },
     });
+    const eligibleIds = new Set(eligibleProducts.map((product) => product.id));
+    const selectedIds = [...new Set(matchingIds)].filter((id) => eligibleIds.has(id)).slice(0, limit);
 
-    const limit = query.limit ?? 4;
-    const matchingIds = candidates
-      .filter((c) => isCompatible(source.compatibility!, c.compatibility!))
-      .slice(0, limit)
-      .map((c) => c.id);
-
-    return this.byIds(matchingIds);
+    return this.byIds(selectedIds);
   }
 
   // Real distinct tool platforms in the catalogue (e.g. "DeWalt 18V XR"),

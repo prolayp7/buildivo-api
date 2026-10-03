@@ -329,4 +329,10 @@ export class CreateProductDto {
   @ArrayUnique()
   @IsInt({ each: true })
   relatedProductIds?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  compatibleProductIds?: number[];
 }

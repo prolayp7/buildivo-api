@@ -24,6 +24,8 @@ const productDetailInclude = {
   productCondition: true,
   taxRate: true,
   compatibility: true,
+  compatibilityLinksFrom: { select: { compatibleProduct: { select: { id: true, title: true, slug: true, sku: true } } } },
+  compatibilityLinksTo: { select: { product: { select: { id: true, title: true, slug: true, sku: true } } } },
   secondaryCategories: { include: { category: true } },
   relatedProducts: { include: { relatedProduct: true } },
   shippingMethods: { include: { shippingMethod: true } },
@@ -136,7 +138,14 @@ export class ProductsService {
       include: productDetailInclude,
     });
     if (!product) throw new NotFoundException('Product not found');
-    return product;
+    const compatibleProducts = [
+      ...product.compatibilityLinksFrom.map((link) => link.compatibleProduct),
+      ...product.compatibilityLinksTo.map((link) => link.product),
+    ];
+    return {
+      ...product,
+      compatibleProducts: [...new Map(compatibleProducts.map((item) => [item.id, item])).values()],
+    };
   }
 
   private async assertSlugAvailable(slug: string, excludeId?: number) {
@@ -148,7 +157,7 @@ export class ProductsService {
   }
 
   private productData(dto: CreateProductDto | UpdateProductDto) {
-    const { secondaryCategoryIds: _secondaryCategoryIds, relatedProductIds: _relatedProductIds, shippingMethodIds: _shippingMethodIds, initialVariant: _initialVariant, compatibility: _compatibility, specsSummary, ...fields } = dto;
+    const { secondaryCategoryIds: _secondaryCategoryIds, relatedProductIds: _relatedProductIds, compatibleProductIds: _compatibleProductIds, shippingMethodIds: _shippingMethodIds, initialVariant: _initialVariant, compatibility: _compatibility, specsSummary, ...fields } = dto;
     return {
       ...fields,
       ...(specsSummary !== undefined
@@ -189,6 +198,18 @@ export class ProductsService {
       if (dto.relatedProductIds?.length) {
         await tx.productRelated.createMany({
           data: dto.relatedProductIds.map((relatedProductId) => ({ productId: product.id, relatedProductId })),
+        });
+      }
+      if (dto.compatibleProductIds?.length) {
+        if (dto.compatibleProductIds.includes(product.id)) {
+          throw new BadRequestException('A product cannot be compatible with itself');
+        }
+        await tx.productCompatibilityLink.createMany({
+          data: dto.compatibleProductIds.flatMap((compatibleProductId) => [
+            { productId: product.id, compatibleProductId },
+            { productId: compatibleProductId, compatibleProductId: product.id },
+          ]),
+          skipDuplicates: true,
         });
       }
       if (dto.shippingMethodIds?.length) {
@@ -263,6 +284,23 @@ export class ProductsService {
         if (dto.relatedProductIds.length) {
           await tx.productRelated.createMany({
             data: dto.relatedProductIds.map((relatedProductId) => ({ productId: id, relatedProductId })),
+          });
+        }
+      }
+      if (dto.compatibleProductIds !== undefined) {
+        if (dto.compatibleProductIds.includes(id)) {
+          throw new BadRequestException('A product cannot be compatible with itself');
+        }
+        await tx.productCompatibilityLink.deleteMany({
+          where: { OR: [{ productId: id }, { compatibleProductId: id }] },
+        });
+        if (dto.compatibleProductIds.length) {
+          await tx.productCompatibilityLink.createMany({
+            data: dto.compatibleProductIds.flatMap((compatibleProductId) => [
+              { productId: id, compatibleProductId },
+              { productId: compatibleProductId, compatibleProductId: id },
+            ]),
+            skipDuplicates: true,
           });
         }
       }

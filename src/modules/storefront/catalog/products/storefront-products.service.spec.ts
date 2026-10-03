@@ -57,3 +57,23 @@ describe('StorefrontProductsService.routeResolution', () => {
     });
   });
 });
+
+describe('StorefrontProductsService.compatibleProducts', () => {
+  const prisma = {
+    product: { findFirst: jest.fn(), findMany: jest.fn() },
+    productCompatibilityLink: { findMany: jest.fn() },
+  } as unknown as PrismaService;
+  const service = new StorefrontProductsService(prisma, {} as CapabilitiesService);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns an explicitly linked product when compatibility facts are absent', async () => {
+    prisma.product.findFirst = jest.fn().mockResolvedValue({ id: 10, compatibility: null });
+    prisma.productCompatibilityLink.findMany = jest.fn().mockResolvedValue([{ compatibleProductId: 20 }]);
+    prisma.product.findMany = jest.fn().mockResolvedValue([{ id: 20 }]);
+    const byIds = jest.spyOn(service, 'byIds').mockResolvedValue([]);
+
+    await expect(service.compatibleProducts('bare-drill', {})).resolves.toEqual([]);
+    expect(byIds).toHaveBeenCalledWith([20]);
+  });
+});

@@ -496,6 +496,8 @@ model Product {
   secondaryCategories    CategoryProduct[]
   relatedProducts        ProductRelated[]         @relation("ProductRelatedSource")
   relatedTo              ProductRelated[]         @relation("ProductRelatedTarget")
+  compatibilityLinksFrom ProductCompatibilityLink[] @relation("ProductCompatibilityLinkSource")
+  compatibilityLinksTo   ProductCompatibilityLink[] @relation("ProductCompatibilityLinkTarget")
   faqs                   ProductFaq[]
   collections            CollectionProduct[]
   browsingHistory        BrowsingHistory[]
@@ -549,6 +551,18 @@ model ProductCompatibility {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("product_compatibility")
+}
+
+model ProductCompatibilityLink {
+  productId           Int      @map("product_id")
+  compatibleProductId Int      @map("compatible_product_id")
+  product             Product  @relation("ProductCompatibilityLinkSource", fields: [productId], references: [id], onDelete: Cascade)
+  compatibleProduct   Product  @relation("ProductCompatibilityLinkTarget", fields: [compatibleProductId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@id([productId, compatibleProductId])
+  @@index([compatibleProductId])
+  @@map("product_compatibility_links")
 }
 
 model ProductRelated {
