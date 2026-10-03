@@ -15,6 +15,11 @@ export class StorefrontSettingsController {
     return this.service.registerPage();
   }
 
+  @Get('deals-page')
+  dealsPage() {
+    return this.service.dealsPage();
+  }
+
   @Get('footer')
   footer() {
     return this.service.footer();

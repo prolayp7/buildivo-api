@@ -62,6 +62,17 @@ export class StorefrontAuthController {
 export class StorefrontMeController {
   constructor(private readonly authService: StorefrontAuthService) {}
 
+  @Get('deletion-request')
+  deletionRequest(@CurrentCustomer() customer: AuthenticatedCustomer) {
+    return this.authService.deletionRequestFor(customer.id);
+  }
+
+  @Post('deletion-request')
+  @HttpCode(200)
+  requestDeletion(@CurrentCustomer() customer: AuthenticatedCustomer) {
+    return this.authService.requestAccountDeletion(customer.id);
+  }
+
   @Get()
   me(@CurrentCustomer() customer: AuthenticatedCustomer) {
     return this.authService.me(customer.id);

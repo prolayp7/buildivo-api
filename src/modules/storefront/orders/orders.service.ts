@@ -296,7 +296,13 @@ export class OrdersService {
   async detail(customerId: number, uuid: string) {
     const order = await this.findByUuid(uuid);
     if (order.userId !== customerId) throw new NotFoundException('Order not found');
-    return order;
+    const media = await this.prisma.media.findMany({
+      where: { ownerType: 'PRODUCT', ownerId: { in: order.items.map((item) => item.productId) } },
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    });
+    const imageByProduct = new Map<number, string>();
+    for (const item of media) if (!imageByProduct.has(item.ownerId) && !/\.(pdf|docx?|csv|mp4|webm)(?:[?#]|$)/i.test(item.url)) imageByProduct.set(item.ownerId, item.url);
+    return { ...order, items: order.items.map((item) => ({ ...item, imageUrl: imageByProduct.get(item.productId) ?? null })) };
   }
 
   // Guest-friendly status lookup: the order number alone is not enough, the email on the order must match
