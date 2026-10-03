@@ -65,6 +65,11 @@ function resolveBucket(ownerType: MediaOwnerType, collection: string): string {
     try {
       const isProductAsset = dto.ownerType === 'PRODUCT' && dto.collection === 'products';
       const isProjectKitAsset = dto.ownerType === 'LIBRARY' && dto.collection === 'project-kits';
+      const isBlogVideoAsset = dto.ownerType === 'LIBRARY' && dto.collection === 'blog-video';
+      if (isBlogVideoAsset) {
+        if (!new Set(['video/mp4', 'video/webm']).has(file.mimetype)) throw new BadRequestException('Blog videos must be MP4 or WebM files');
+        if (file.size > 25 * 1024 * 1024) throw new BadRequestException('Blog videos must be 25 MB or smaller');
+      }
       if (isProjectKitAsset) {
         if (!new Set(['image/jpeg', 'image/png', 'image/webp']).has(file.mimetype)) throw new BadRequestException('Project kit banners must be JPG, PNG or WebP files');
         if (file.size > 1024 * 1024) throw new BadRequestException('Project kit banners must be 1 MB or smaller');
