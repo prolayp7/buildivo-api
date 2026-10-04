@@ -31,7 +31,7 @@ export class SitemapService {
       ...products.map((p) => ({ loc: `${STOREFRONT_URL}/p/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
       ...categories.map((c) => ({ loc: `${STOREFRONT_URL}/c/${encodeURIComponent(c.slug)}`, lastmod: c.updatedAt })),
       ...posts.map((p) => ({ loc: `${STOREFRONT_URL}/blog/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
-      ...pages.map((p) => ({ loc: `${STOREFRONT_URL}/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
+      ...pages.filter((p) => !['trade', 'trade-portal'].includes(p.slug.toLowerCase())).map((p) => ({ loc: `${STOREFRONT_URL}/${encodeURIComponent(p.slug)}`, lastmod: p.updatedAt })),
     ];
     const body = urls
       .map((u) => `  <url><loc>${escapeXml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod.toISOString()}</lastmod>` : ''}</url>`)

@@ -27,6 +27,7 @@ lerna-debug.log*
 
 
 # milvus
+*.conf
 *.md
 !README.md
 # Private return evidence / inspection photos (never public)

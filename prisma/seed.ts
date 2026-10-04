@@ -200,7 +200,7 @@ async function main() {
     }
   }
 
-  // Footer menu - four link columns, admin-editable. Column titles are
+  // Footer menu - five link columns, admin-editable. Column titles are
   // top-level items; each column's links are child items (matching the
   // storefront's site-footer.tsx, which used to hardcode this exact copy).
   const footerMenu = await prisma.menu.upsert({
@@ -252,6 +252,15 @@ async function main() {
         { label: 'Fixings Load Bearing Charts', href: '/guides' },
         { label: 'Safety Regulations (HSE/OSHA)', href: '/guides' },
         { label: 'Apprentice Tool Kits', href: '/guides' },
+      ],
+    },
+    {
+      title: 'Shop & Account',
+      links: [
+        { label: 'My Account', href: '/account' },
+        { label: 'Saved Items', href: '/wishlist' },
+        { label: 'Compare Products', href: '/compare' },
+        { label: 'Shopping Cart', href: '/cart' },
       ],
     },
   ];
