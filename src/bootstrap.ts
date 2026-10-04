@@ -34,7 +34,10 @@ export function configureApp(app: INestApplication): void {
     useStaticAssets?: (path: string, options?: { prefix?: string }) => void;
   };
   staticApp.useStaticAssets?.(mediaUploadDirectory, { prefix: '/uploads/' });
-  app.enableCors({ origin: storefrontOrigins(), credentials: true });
+  app.enableCors({
+    origin: process.env.NODE_ENV === 'development' ? true : storefrontOrigins(),
+    credentials: true,
+  });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
     new ValidationPipe({
