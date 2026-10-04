@@ -6,10 +6,11 @@ import { CustomerCoreModule } from '../../../common/customer/customer-core.modul
 import { CartModule } from '../cart/cart.module';
 import { StorefrontShippingModule } from '../shipping/storefront-shipping.module';
 import { StorefrontCouponsModule } from '../coupons/coupons.module';
+import { StorefrontCatalogCacheInvalidationInterceptor } from '../../../common/interceptors/storefront-catalog-cache-invalidation.interceptor';
 
 @Module({
   imports: [CustomerCoreModule, CartModule, StorefrontShippingModule, StorefrontCouponsModule],
   controllers: [OrdersController],
-  providers: [OrdersService, OrderExpiryService],
+  providers: [OrdersService, OrderExpiryService, StorefrontCatalogCacheInvalidationInterceptor],
 })
 export class OrdersModule {}

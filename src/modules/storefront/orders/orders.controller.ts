@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
+import { StorefrontCatalogCacheInvalidationInterceptor } from '../../../common/interceptors/storefront-catalog-cache-invalidation.interceptor';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -19,6 +20,7 @@ export class OrdersController {
 
   @Post()
   @HttpCode(201)
+  @UseInterceptors(StorefrontCatalogCacheInvalidationInterceptor)
   checkout(
     @CurrentCustomer() customer: AuthenticatedCustomer | undefined,
     @GuestToken() guestToken: string | undefined,
@@ -60,6 +62,7 @@ export class OrdersController {
 
   @Patch(':uuid/cancel')
   @UseGuards(CustomerAuthGuard)
+  @UseInterceptors(StorefrontCatalogCacheInvalidationInterceptor)
   cancel(@CurrentCustomer() customer: AuthenticatedCustomer, @Param('uuid') uuid: string, @Body() dto: CancelOrderDto) {
     return this.ordersService.cancel(customer.id, uuid, dto.reason);
   }

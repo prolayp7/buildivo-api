@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { StorefrontCatalogCacheInvalidationInterceptor } from '../../../../common/interceptors/storefront-catalog-cache-invalidation.interceptor';
 import { AdminAuthGuard } from '../../../../common/admin/admin-auth.guard';
 import { PermissionsGuard } from '../../../../common/admin/permissions.guard';
 import { RequirePermissions } from '../../../../common/admin/permissions.decorator';
@@ -21,6 +23,7 @@ import { UpdateBrandDto } from './dto/update-brand.dto';
 
 @Controller('admin/brands')
 @UseGuards(AdminAuthGuard, PermissionsGuard)
+@UseInterceptors(StorefrontCatalogCacheInvalidationInterceptor)
 @RequirePermissions('products.manage')
 export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}

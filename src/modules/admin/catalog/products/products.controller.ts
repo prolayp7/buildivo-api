@@ -14,6 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { StorefrontCatalogCacheInvalidationInterceptor } from '../../../../common/interceptors/storefront-catalog-cache-invalidation.interceptor';
 import { AdminAuthGuard } from '../../../../common/admin/admin-auth.guard';
 import { PermissionsGuard } from '../../../../common/admin/permissions.guard';
 import { RequirePermissions } from '../../../../common/admin/permissions.decorator';
@@ -31,6 +32,7 @@ import { ProductsImportService, UploadedImportFile } from './products-import.ser
 
 @Controller('admin/products')
 @UseGuards(AdminAuthGuard, PermissionsGuard)
+@UseInterceptors(StorefrontCatalogCacheInvalidationInterceptor)
 @RequirePermissions('products.manage')
 export class ProductsController {
   constructor(

@@ -46,6 +46,26 @@ Adjust the username/password/host/port above to match your local Postgres setup 
 
 The schema is documented in [`docs/superpowers/specs/2026-08-28-database-design.md`](docs/superpowers/specs/2026-08-28-database-design.md) and was implemented via [`docs/superpowers/plans/2026-08-28-database-design.md`](docs/superpowers/plans/2026-08-28-database-design.md).
 
+## Storefront catalog cache
+
+The storefront caches category and product API responses for up to five minutes and
+tags them for on-demand invalidation. After successful admin product, category,
+brand, checkout, or order-cancellation writes, the API calls the storefront
+revalidation route. Configure the same random secret in both server environments:
+
+```dotenv
+# API environment
+STOREFRONT_REVALIDATION_URL=http://127.0.0.1:<storefront-port>/api/revalidate/catalog
+STOREFRONT_REVALIDATION_SECRET=<shared-random-secret>
+
+# Storefront environment
+STOREFRONT_REVALIDATION_SECRET=<shared-random-secret>
+```
+
+Keep the revalidation URL on loopback when both services run on the same host.
+If either variable is missing or the callback fails, the catalog cache expires
+by its five-minute TTL instead of blocking the API write.
+
 ## Buildivo catalog seed
 
 ```bash
